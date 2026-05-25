@@ -1,0 +1,13 @@
+# Keep line endings deterministic across clones.
+# DCS Lua + Python + docs stay LF (mission files are LF; the patcher does bytes
+# I/O and embeds the bridge verbatim). Windows .bat files stay CRLF.
+* text=auto eol=lf
+*.lua  text eol=lf
+*.py   text eol=lf
+*.dlg  text eol=lf
+*.md   text eol=lf
+*.txt  text eol=lf
+*.bat  text eol=crlf
+
+# Never normalize the bundled interpreter (gitignored anyway, belt & braces).
+Patcher/python/** binary

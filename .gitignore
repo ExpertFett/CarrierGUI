@@ -1,0 +1,23 @@
+# Bundled Python interpreter (build artifact — fetched at release time, ~22 MB)
+Patcher/python/
+
+# Built release folders + zips
+/dist/
+*.zip
+
+# Mission files + patcher backups (never belong in the repo)
+*.miz
+*.miz.bak
+*.bak
+
+# Python caches
+__pycache__/
+*.pyc
+
+# Editor / OS cruft
+.vscode/
+.idea/
+desktop.ini
+Thumbs.db
+.DS_Store
+*~

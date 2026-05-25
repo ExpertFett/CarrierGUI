@@ -1,0 +1,175 @@
+================================================================
+ CarrierGUI v0.4
+ In-DCS GUI for AI carrier control — VR-friendly
+================================================================
+
+Replaces the F10 radio menu for carrier control with a togglable
+in-game panel. Works in VR because it draws inside DCS.
+
+Hotkey:  Ctrl+Shift+c  (toggle panel)
+
+----------------------------------------------------------------
+ INSTALL  (every pilot does this once)
+----------------------------------------------------------------
+
+  1. Extract the whole zip somewhere — keep the folder together.
+  2. Double-click  Install.bat
+  3. Restart DCS if it was running.
+  4. Start any mission and press  Ctrl+Shift+c
+
+Install.bat copies two files into your DCS Saved Games:
+   Scripts\Hooks\carrier-gui-hook.lua
+   Scripts\Hooks\carrier-gui.dlg
+That's all the pilots need.
+
+If you have multiple DCS installs (DCS, DCS.openbeta), the
+installer copies into all of them.
+
+----------------------------------------------------------------
+ PATCHING MISSIONS  (one person per squadron, usually)
+----------------------------------------------------------------
+
+For the GUI buttons to actually do anything in a given mission,
+the .miz file needs to contain the CarrierGUI bridge + lights
+triggers. Pilots installing the hook do NOT need to patch — only
+the person editing/distributing the squadron's missions does.
+
+Steps:
+
+  1. Drag one (or many) .miz files onto:
+       Patcher\Patch Mission.bat
+
+  2. The patcher embeds the bridge script and writes 5 light
+     triggers into each .miz. A .miz.bak backup is created
+     next to the original on the first patch.
+
+  3. Distribute the patched .miz to your pilots.
+
+Safe to re-run: patching an already-patched .miz just refreshes
+the embedded bridge. Drag the same files onto Patch Mission.bat
+whenever you update CarrierGUI.
+
+To remove the patch:
+  Drag the .miz onto  Patcher\Revert Mission.bat
+
+----------------------------------------------------------------
+ WHAT THE BUTTONS DO
+----------------------------------------------------------------
+
+  LIGHTS:           Off / Auto / Nav / Launch / Recovery
+                    (sets carrier illumination mode)
+
+  TACAN On/Off      Activates/deactivates the carrier's TACAN
+                    using the channel/freq set in the mission
+                    editor.
+
+  ICLS On/Off       Same for ICLS.
+
+  LINK 4 On/Off     Same for Link 4.
+
+  ACLS On/Off       Same for ACLS.
+
+  TURN INTO WIND:   Stop / 30m / 60m / 90m / 2h / 4h / 8h
+                    Tasks the carrier to point into the wind at
+                    the right speed for flight ops. Duration is
+                    informational — the carrier holds heading
+                    until you press Stop or pick another
+                    duration. Stop returns to a holding course
+                    at 12 kts.
+
+The bridge auto-discovers any CVN- or LHA-class carrier in the
+mission. No specific group/unit names required. Works for
+Stennis, VINSON, Forrestal, Roosevelt, Tarawa, Wasp, etc.
+
+For TACAN / ICLS / LINK 4 / ACLS to work, the channel and freq
+must be set in the mission editor on the carrier's first
+waypoint (the bridge re-issues those exact settings when you
+press On). If a beacon was never configured, the bridge will
+print a warning in-game.
+
+----------------------------------------------------------------
+ THE PANEL SHOWS A STATUS LINE
+----------------------------------------------------------------
+
+At the bottom of the panel:
+
+  "Bridge: online"
+    The current mission is patched. All buttons will work.
+
+  "Mission NOT PATCHED — buttons will not respond."
+    The mission doesn't contain the bridge. Lights, beacons, and
+    wind buttons will not do anything until you run
+    Patch Mission.bat on the .miz.
+
+The hotkey itself works whether or not the mission is patched.
+
+----------------------------------------------------------------
+ UNINSTALL
+----------------------------------------------------------------
+
+  Double-click  Uninstall.bat
+    Removes the hook + .dlg from every DCS Saved Games folder.
+    Patched .miz files keep their embedded bridge — if you want
+    a fully clean mission, drag it onto Revert Mission.bat too.
+
+----------------------------------------------------------------
+ TROUBLESHOOTING
+----------------------------------------------------------------
+
+Hotkey doesn't open the panel:
+  - DCS must be fully relaunched after Install.bat. The hook
+    only loads at DCS startup.
+  - Make sure both carrier-gui-hook.lua AND carrier-gui.dlg
+    are in Scripts\Hooks (run Install.bat again).
+  - Check the log at:
+       %USERPROFILE%\Saved Games\DCS\Logs\dcs.log
+    Search for "CarrierGUI" — you should see lines like
+       "hook loaded (v0.4)"
+       "window created"
+       "hotkey Ctrl+Shift+c registered"
+    The first one missing tells you which step failed.
+
+Panel shows "Mission NOT PATCHED":
+  - Drag the .miz file onto Patcher\Patch Mission.bat and
+    distribute the patched version.
+
+Buttons don't trigger anything but panel says Bridge online:
+  - Carrier must be a recognized type (CVN/Stennis/VINSON/
+    Forrestal for CVN-class, Tarawa/Wasp for LHA-class).
+  - For beacons, channel/freq must be set in the mission editor.
+  - Check dcs.log for "[CarrierGUI Bridge]" messages.
+
+Patch Mission.bat says "Bundled Python not found":
+  - You didn't extract the whole zip. The Patcher\python\
+    folder must be present alongside the .bat file.
+
+----------------------------------------------------------------
+ WHAT'S IN THIS ZIP
+----------------------------------------------------------------
+
+  Install.bat            run once per pilot
+  Uninstall.bat          undo Install.bat
+  README.txt             this file
+
+  Hooks\
+    carrier-gui-hook.lua   the GUI side (rendering + hotkey)
+    carrier-gui.dlg        layout for the panel
+
+  Patcher\               (mission designer's tools)
+    Patch Mission.bat      drag-drop wrapper
+    Revert Mission.bat     drag-drop wrapper to undo a patch
+    patch_miz.py           the actual patcher
+    carrier-gui-bridge.lua the in-mission script that gets
+                           embedded by the patcher
+    python\                bundled Python 3.12 — leave alone
+
+----------------------------------------------------------------
+ CREDITS / VERSION
+----------------------------------------------------------------
+
+CarrierGUI v0.4 — personal project, free to share within
+DCS squadrons. Not affiliated with Eagle Dynamics, Hornet
+School, or any third party.
+
+If something breaks, the dcs.log lines tagged CarrierGUI are
+your best clue. Happy hunting.

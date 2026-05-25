@@ -1,0 +1,189 @@
+-- CarrierGUI dialog layout  (v0.4 — two tabs: CARRIER + MARSHALL)
+-- Loaded by carrier-gui-hook.lua via DialogLoader.spawnDialogFromFile.
+-- The hook wires each btn* child and toggles tab visibility.
+
+local W = 380       -- window width
+local H = 560       -- window height
+local BTN_W = 72    -- standard button width
+local BTN_H = 26    -- standard button height
+local PAD = 6
+
+local ButtonSkin = { ["params"] = { ["name"] = "buttonSkin" } }
+
+local function mkLabelSkin(color, size)
+    return {
+        ["params"] = { ["name"] = "staticSkin", ["textWrapping"] = false },
+        ["states"] = {
+            ["released"] = {
+                [1] = {
+                    ["text"] = {
+                        ["color"]      = color or "0xfbb941ff",
+                        ["font"]       = "DejaVuLGCSansCondensed-Bold.ttf",
+                        ["lineHeight"] = size or 14,
+                    },
+                },
+            },
+        },
+    }
+end
+
+local LabelSkin  = mkLabelSkin("0xfbb941ff", 14)   -- section headers (amber)
+local ValueSkin  = mkLabelSkin("0xffffffff", 16)   -- stepper values (white)
+local CapSkin    = mkLabelSkin("0xccccccff", 13)   -- captions (grey)
+
+local function btn(text, x, y, w, skin)
+    return {
+        ["params"] = {
+            ["bounds"]  = { ["h"] = BTN_H, ["w"] = w or BTN_W, ["x"] = x, ["y"] = y },
+            ["enabled"] = true,
+            ["text"]    = text,
+            ["tooltip"] = "",
+            ["visible"] = true,
+            ["zindex"]  = 0,
+        },
+        ["skin"] = skin or ButtonSkin,
+        ["type"] = "Button",
+    }
+end
+
+local function lbl(text, x, y, w, skin, h)
+    return {
+        ["params"] = {
+            ["bounds"]  = { ["h"] = h or 18, ["w"] = w or 200, ["x"] = x, ["y"] = y },
+            ["enabled"] = true,
+            ["text"]    = text,
+            ["tooltip"] = "",
+            ["visible"] = true,
+            ["zindex"]  = 0,
+        },
+        ["skin"] = skin or LabelSkin,
+        ["type"] = "Static",
+    }
+end
+
+dialog = {
+    ["children"] = {},
+    ["params"] = {
+        ["bounds"]  = { ["h"] = H, ["w"] = W, ["x"] = 200, ["y"] = 100 },
+        ["enabled"] = true,
+        ["text"]    = "Carrier Control",
+        ["tooltip"] = "",
+        ["visible"] = false,            -- hook flips to true after creation
+        ["zindex"]  = 0,
+    },
+    ["skin"] = { ["params"] = { ["name"] = "windowSkin" } },
+    ["type"] = "Window",
+}
+
+local c = dialog.children
+
+-- ---------------------------------------------------------------- TAB BAR ---
+c.btnTabCarrier  = btn("CARRIER",  PAD,        4, 120)
+c.btnTabMarshall = btn("MARSHALL", PAD + 126,  4, 120)
+
+-- =============================================================== CARRIER TAB ==
+local y = 40
+c.lblLights         = lbl("LIGHTS", PAD, y)
+y = y + 22
+c.btnLightsOff      = btn("Off",      PAD + (BTN_W+PAD)*0, y)
+c.btnLightsAuto     = btn("Auto",     PAD + (BTN_W+PAD)*1, y)
+c.btnLightsNav      = btn("Nav",      PAD + (BTN_W+PAD)*2, y)
+c.btnLightsLaunch   = btn("Launch",   PAD + (BTN_W+PAD)*3, y)
+y = y + BTN_H + PAD
+c.btnLightsRecovery = btn("Recovery", PAD, y, BTN_W*2 + PAD)
+
+y = y + BTN_H + PAD*2
+c.lblTacan          = lbl("TACAN", PAD, y)
+y = y + 22
+c.btnTacanOn        = btn("On",  PAD + (BTN_W+PAD)*0, y)
+c.btnTacanOff       = btn("Off", PAD + (BTN_W+PAD)*1, y)
+
+y = y + BTN_H + PAD*2
+c.lblIcls           = lbl("ICLS", PAD, y)
+y = y + 22
+c.btnIclsOn         = btn("On",  PAD + (BTN_W+PAD)*0, y)
+c.btnIclsOff        = btn("Off", PAD + (BTN_W+PAD)*1, y)
+
+y = y + BTN_H + PAD*2
+c.lblLink4          = lbl("LINK 4", PAD, y)
+y = y + 22
+c.btnLink4On        = btn("On",  PAD + (BTN_W+PAD)*0, y)
+c.btnLink4Off       = btn("Off", PAD + (BTN_W+PAD)*1, y)
+
+y = y + BTN_H + PAD*2
+c.lblAcls           = lbl("ACLS", PAD, y)
+y = y + 22
+c.btnAclsOn         = btn("On",  PAD + (BTN_W+PAD)*0, y)
+c.btnAclsOff        = btn("Off", PAD + (BTN_W+PAD)*1, y)
+
+y = y + BTN_H + PAD*2
+c.lblWind           = lbl("TURN INTO WIND", PAD, y, 250)
+y = y + 22
+local wb = 48
+c.btnWindStop = btn("Stop", PAD + (wb+4)*0, y, wb)
+c.btnWind30m  = btn("30m",  PAD + (wb+4)*1, y, wb)
+c.btnWind60m  = btn("60m",  PAD + (wb+4)*2, y, wb)
+c.btnWind90m  = btn("90m",  PAD + (wb+4)*3, y, wb)
+c.btnWind2h   = btn("2h",   PAD + (wb+4)*4, y, wb)
+c.btnWind4h   = btn("4h",   PAD + (wb+4)*5, y, wb)
+c.btnWind8h   = btn("8h",   PAD + (wb+4)*6, y, wb)
+
+-- ============================================================== MARSHALL TAB ==
+-- Marshall widgets overlap the carrier widgets in Y; only one tab is visible
+-- at a time (hook toggles). All start visible; hook hides the inactive tab.
+local my = 40
+c.lblMarCase = lbl("RECOVERY CASE", PAD, my)
+my = my + 22
+c.btnCase1 = btn("CASE I",   PAD + (114+PAD)*0, my, 114)
+c.btnCase2 = btn("CASE II",  PAD + (114+PAD)*1, my, 114)
+c.btnCase3 = btn("CASE III", PAD + (114+PAD)*2 - 116, my + 0, 114)
+-- third button on next position; keep 3 across if width allows, else wrap
+c.btnCase3.params.bounds.x = PAD + (114+PAD)*2
+my = my + BTN_H + PAD*2
+
+c.lblMarStack = lbl("MARSHAL STACK", PAD, my)
+my = my + 22
+c.lblFlightsCap = lbl("Flights:", PAD, my + 4, 70, CapSkin)
+c.btnFlightsDown = btn("-", PAD + 76,  my, 40)
+c.lblFlightsVal  = lbl("1", PAD + 122, my + 4, 36, ValueSkin)
+c.btnFlightsUp   = btn("+", PAD + 162, my, 40)
+my = my + BTN_H + PAD
+c.btnMarshalBroadcast = btn("Broadcast Marshal Stack", PAD, my, 250)
+
+my = my + BTN_H + PAD*2
+c.lblMarCharlie = lbl("CHARLIE / PUSH", PAD, my)
+my = my + 22
+c.lblCharlieCap = lbl("Minutes:", PAD, my + 4, 70, CapSkin)
+c.btnCharlieDown = btn("-", PAD + 76,  my, 40)
+c.lblCharlieVal  = lbl("15", PAD + 122, my + 4, 36, ValueSkin)
+c.btnCharlieUp   = btn("+", PAD + 162, my, 40)
+my = my + BTN_H + PAD
+c.btnCharlieBroadcast = btn("Broadcast Charlie", PAD, my, 250)
+
+-- ============================================================= SHARED STATUS ==
+local StatusSkin = {
+    ["params"] = { ["name"] = "staticSkin", ["textWrapping"] = true },
+    ["states"] = {
+        ["released"] = {
+            [1] = {
+                ["text"] = {
+                    ["color"]      = "0xaaaaaaff",
+                    ["font"]       = "DejaVuLGCSansCondensed.ttf",
+                    ["lineHeight"] = 12,
+                },
+            },
+        },
+    },
+}
+c.lblStatus = {
+    ["params"] = {
+        ["bounds"]  = { ["h"] = 40, ["w"] = W - PAD*2, ["x"] = PAD, ["y"] = H - 50 },
+        ["enabled"] = true,
+        ["text"]    = "Bridge: checking...",
+        ["tooltip"] = "",
+        ["visible"] = true,
+        ["zindex"]  = 0,
+    },
+    ["skin"] = StatusSkin,
+    ["type"] = "Static",
+}

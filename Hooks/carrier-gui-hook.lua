@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v0.7 — round arc dial + mouse wheel spin)
+-- CarrierGUI Hook  (rebuild v0.8 — bigger LED dial + setSkin color swap)
 -- ============================================================================
 -- Loads the carrier-gui.dlg dialog and toggles it with Ctrl+Shift+c.
 -- Each button fires a numbered user flag via net.dostring_in("server", ...).
@@ -107,8 +107,31 @@ local function load()
         'lblLsoNvg',
         'dotNvg0','dotNvg1','dotNvg2','dotNvg3','dotNvg4','dotNvg5',
         'dotNvg6','dotNvg7','dotNvg8','dotNvg9','dotNvg10',
+        'lblTick0', 'lblTick50', 'lblTickMax',
         'lblNvgVal', 'lblNvgState', 'lblLsoHelp',
     }
+
+    -- LED-dot skins for the gain dial. Same shape as the .dlg's skin tables;
+    -- setSkin(table) on a Static accepts this format. Lit = bright NVG green,
+    -- Dim = near-black so unlit segments fade into the background.
+    local function makeDotSkin(color)
+        return {
+            params = { name = 'staticSkin', textWrapping = false },
+            states = {
+                released = {
+                    [1] = {
+                        text = {
+                            color      = color,
+                            font       = 'DejaVuLGCSansCondensed-Bold.ttf',
+                            lineHeight = 32,
+                        },
+                    },
+                },
+            },
+        }
+    end
+    local DOT_SKIN_LIT = makeDotSkin('0x60ff80ff')   -- bright NVG green
+    local DOT_SKIN_DIM = makeDotSkin('0x252525ff')   -- near-black grey
 
     -- --------------------------------------------------------- show / hide ---
     -- Gotcha #4: setVisible(false) destroys the dialog. We toggle visibility
@@ -182,34 +205,30 @@ local function load()
         if not ok then logErr('NVG file write failed: ' .. tostring(err)) end
     end
 
-    -- "●" U+25CF filled circle, "○" U+25CB open circle. Lit dots = ≤ gain.
-    local NVG_DOT_LIT   = '\xE2\x97\x8F'   -- ●
-    local NVG_DOT_UNLIT = '\xE2\x97\x8B'   -- ○
-
     local function updateNvgDisplay()
         if not carrier.window then return end
         local g = carrier.nvgGain
-        -- big percent in the center
+        -- Big centre readout: "OFF" at zero, "NN%" otherwise.
         if carrier.window.lblNvgVal then
-            base.pcall(function() carrier.window.lblNvgVal:setText(tostring(g) .. '%') end)
+            local txt = (g <= 0) and 'OFF' or (tostring(g) .. '%')
+            base.pcall(function() carrier.window.lblNvgVal:setText(txt) end)
         end
-        -- dot array: dot i lights up when its step (i*10%) <= current gain.
-        -- Dot 0 always lit (it represents the "0%" position itself).
+        -- 11 LED dots arc-arranged; dot i lit IFF gain >= i*10. At gain=0 only
+        -- the leftmost dot (the "0% position") stays lit as a marker. At 100%
+        -- all 11 are lit.
         for i = 0, 10 do
             local dot = carrier.window['dotNvg' .. i]
             if dot then
-                local lit = (i * 10) <= g
-                base.pcall(function()
-                    dot:setText(lit and NVG_DOT_LIT or NVG_DOT_UNLIT)
-                end)
+                local skin = (g >= i * 10) and DOT_SKIN_LIT or DOT_SKIN_DIM
+                base.pcall(function() dot:setSkin(skin) end)
             end
         end
-        -- state line
+        -- State line
         if carrier.window.lblNvgState then
             local label
-            if g <= 0       then label = 'NVG: OFF (normal feed)'
-            elseif g >= 100 then label = 'NVG: MAX (full amplification)'
-            else                 label = 'NVG: ' .. g .. '% (partial amplification)' end
+            if g <= 0       then label = 'normal feed'
+            elseif g >= 100 then label = 'full amplification (MAX)'
+            else                 label = 'partial amplification' end
             base.pcall(function() carrier.window.lblNvgState:setText(label) end)
         end
     end
@@ -439,7 +458,7 @@ local function load()
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v0.7)')
+    logInfo('hook loaded (v0.8)')
 end
 
 local ok, err = pcall(load)

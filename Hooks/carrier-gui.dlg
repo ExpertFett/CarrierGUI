@@ -1,4 +1,4 @@
--- CarrierGUI dialog layout  (v0.7 — three tabs: CARRIER + MARSHALL + LSO)
+-- CarrierGUI dialog layout  (v0.8 — three tabs: CARRIER + MARSHALL + LSO)
 -- Loaded by carrier-gui-hook.lua via DialogLoader.spawnDialogFromFile.
 -- The hook wires each btn* child and toggles tab visibility.
 
@@ -163,36 +163,44 @@ my = my + BTN_H + PAD
 c.btnCharlieBroadcast = btn("Broadcast Charlie", PAD, my, 250)
 
 -- ================================================================= LSO TAB ==
--- v0.7: PLAT-cam NVG gain dial — arc of 11 dots ("●" / "○") around a big
--- mouse-wheel-scrollable percent display in the middle. Click any dot to
--- jump straight to that gain. Positions are PRE-COMPUTED (no math.* calls);
--- DialogLoader runs the .dlg in a restricted sandbox where math.rad fails.
-c.lblLsoNvg = lbl("PLAT-CAM NVG", PAD, 44)
+-- v0.8: PLAT-cam NVG gain dial — 11 LED-style dots in a half-arc, big "OFF"
+-- or "NN%" readout in the centre. Dots start green; the hook will dim
+-- unlit ones via setSkin. Positions are PRE-COMPUTED literal coords —
+-- DialogLoader's .dlg sandbox lacks math.* / loops are unreliable.
+c.lblLsoNvg = lbl("PLAT-CAM NVG GAIN", PAD, 38, 240, LabelSkin, 18)
 
-local DotSkin = mkLabelSkin("0x40ff80ff", 22)
--- gauge center 190,130 ; radius 70 ; widgets are 22x22 (offset -11,-11)
-c.dotNvg0  = lbl("o", 109, 119, 22, DotSkin, 22)
-c.dotNvg1  = lbl("o", 112,  97, 22, DotSkin, 22)
-c.dotNvg2  = lbl("o", 122,  78, 22, DotSkin, 22)
-c.dotNvg3  = lbl("o", 138,  62, 22, DotSkin, 22)
-c.dotNvg4  = lbl("o", 157,  52, 22, DotSkin, 22)
-c.dotNvg5  = lbl("o", 179,  49, 22, DotSkin, 22)
-c.dotNvg6  = lbl("o", 201,  52, 22, DotSkin, 22)
-c.dotNvg7  = lbl("o", 220,  62, 22, DotSkin, 22)
-c.dotNvg8  = lbl("o", 236,  78, 22, DotSkin, 22)
-c.dotNvg9  = lbl("o", 246,  97, 22, DotSkin, 22)
-c.dotNvg10 = lbl("o", 249, 119, 22, DotSkin, 22)
+-- LED character "●" U+25CF, big and bold. Hook swaps colour via setSkin
+-- (LIT bright green vs DIM near-black) — text never changes after load.
+local LedLit = mkLabelSkin("0x60ff80ff", 32)   -- bright NVG green
+-- Half-arc dots, centre (190, 150), radius 90, widgets 32x32 (offset -16,-16)
+c.dotNvg0  = lbl("\xE2\x97\x8F",  84, 134, 32, LedLit, 32)
+c.dotNvg1  = lbl("\xE2\x97\x8F",  88, 106, 32, LedLit, 32)
+c.dotNvg2  = lbl("\xE2\x97\x8F", 101,  81, 32, LedLit, 32)
+c.dotNvg3  = lbl("\xE2\x97\x8F", 121,  61, 32, LedLit, 32)
+c.dotNvg4  = lbl("\xE2\x97\x8F", 146,  48, 32, LedLit, 32)
+c.dotNvg5  = lbl("\xE2\x97\x8F", 174,  44, 32, LedLit, 32)
+c.dotNvg6  = lbl("\xE2\x97\x8F", 202,  48, 32, LedLit, 32)
+c.dotNvg7  = lbl("\xE2\x97\x8F", 227,  61, 32, LedLit, 32)
+c.dotNvg8  = lbl("\xE2\x97\x8F", 247,  81, 32, LedLit, 32)
+c.dotNvg9  = lbl("\xE2\x97\x8F", 260, 106, 32, LedLit, 32)
+c.dotNvg10 = lbl("\xE2\x97\x8F", 264, 134, 32, LedLit, 32)
 
--- Big center percent readout. Mouse-wheel target — hover and scroll to spin.
-local BigSkin = mkLabelSkin("0xffffffff", 28)
-c.lblNvgVal = lbl("0%", 140, 116, 100, BigSkin, 32)
+-- Tick labels at each end of the arc — "0" left, "MAX" right, "50" top
+local TickSkin = mkLabelSkin("0xa0a0a0ff", 12)
+c.lblTick0   = lbl("0",   84, 168, 32, TickSkin, 14)
+c.lblTick50  = lbl("50", 178,  28, 32, TickSkin, 14)
+c.lblTickMax = lbl("MAX",256, 168, 40, TickSkin, 14)
 
--- State + help below the gauge
-c.lblNvgState = lbl("NVG: OFF (normal feed)", PAD, 220, W - PAD*2, ValueSkin, 22)
+-- Big centre readout — mouse-wheel target (hover + scroll spins gain).
+local BigSkin = mkLabelSkin("0xffffffff", 40)
+c.lblNvgVal = lbl("OFF", 90, 120, 200, BigSkin, 50)
+
+-- State + help below
+c.lblNvgState = lbl("normal feed", PAD, 210, W - PAD*2, ValueSkin, 22)
 c.lblLsoHelp  = lbl(
-    "Spin: hover the % readout and scroll mouse wheel.\n" ..
-    "Or click any dot to jump to that gain.",
-    PAD, 252, W - PAD*2, CapSkin, 40)
+    "Scroll wheel over the centre readout to spin the gain.\n" ..
+    "Or click any LED dot to jump directly to that gain.",
+    PAD, 248, W - PAD*2, CapSkin, 40)
 
 -- ============================================================= SHARED STATUS ==
 local StatusSkin = {

@@ -31,6 +31,10 @@ for %%R in (%ROOTS%) do (
         if not exist "!TARGET!" mkdir "!TARGET!" >nul 2>&1
         copy /Y "%SRC%\carrier-gui-hook.lua" "!TARGET!\carrier-gui-hook.lua" >nul
         copy /Y "%SRC%\carrier-gui.dlg"      "!TARGET!\carrier-gui.dlg"      >nul
+        if exist "%SRC%\assets" (
+            if not exist "!TARGET!\assets" mkdir "!TARGET!\assets" >nul 2>&1
+            xcopy /Y /I /Q "%SRC%\assets\*"  "!TARGET!\assets\"    >nul
+        )
         if errorlevel 1 (
             echo   FAILED to copy files
         ) else (

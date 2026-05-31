@@ -28,6 +28,7 @@ PY_EMBED_URL = 'https://www.python.org/ftp/python/3.12.7/python-3.12.7-embed-amd
 INCLUDE = [
     'Hooks/carrier-gui-hook.lua',
     'Hooks/carrier-gui.dlg',
+    'Hooks/assets/dial-face.png',
     'Patcher/patch_miz.py',
     'Patcher/carrier-gui-bridge.lua',
     'Patcher/Patch Mission.bat',

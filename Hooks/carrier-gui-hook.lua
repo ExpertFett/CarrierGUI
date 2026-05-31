@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v0.9 — arc of numbers (Lua 5.1 x escape bug fix))
+-- CarrierGUI Hook  (rebuild v1.0-beta1 — graphical dial face + pip)
 -- ============================================================================
 -- Loads the carrier-gui.dlg dialog and toggles it with Ctrl+Shift+c.
 -- Each button fires a numbered user flag via net.dostring_in("server", ...).
@@ -104,10 +104,29 @@ local function load()
         'btnCharlieUp','btnCharlieBroadcast',
     }
     local LSO_WIDGETS = {
-        'lblLsoNvg',
+        'lblLsoNvg', 'dialFace',
         'dotNvg0','dotNvg1','dotNvg2','dotNvg3','dotNvg4','dotNvg5',
         'dotNvg6','dotNvg7','dotNvg8','dotNvg9','dotNvg10',
-        'lblNvgVal', 'lblNvgState', 'lblLsoHelp',
+        'dialPip', 'lblNvgVal', 'lblNvgState', 'lblLsoHelp',
+    }
+
+    -- Pre-computed pip positions (top-left corner of the 24x24 pip widget)
+    -- per gain step. Computed for radius 115 from dial centre (190, 220) at
+    -- 11 angles 180° / 162° / ... / 0°. Pre-computed because DialogLoader
+    -- sandbox can't run math.*, and we want the same data here too for
+    -- consistency. Pip is 24x24, offset -12,-12 from arc point.
+    local PIP_POS = {
+        [0]  = {x =  63, y = 208},
+        [1]  = {x =  68, y = 172},
+        [2]  = {x =  84, y = 140},
+        [3]  = {x = 109, y = 113},
+        [4]  = {x = 143, y =  99},
+        [5]  = {x = 178, y =  93},
+        [6]  = {x = 213, y =  99},
+        [7]  = {x = 247, y = 113},
+        [8]  = {x = 272, y = 140},
+        [9]  = {x = 288, y = 172},
+        [10] = {x = 293, y = 208},
     }
 
     -- Skins for the gain-dial number labels. setSkin(table) on a Static
@@ -131,6 +150,26 @@ local function load()
     end
     local DOT_SKIN_LIT = makeDotSkin('0x60ff80ff')   -- selected: bright NVG green
     local DOT_SKIN_DIM = makeDotSkin('0x707070ff')   -- unselected: mid grey (readable)
+
+    -- Dial-face image skin. Path is computed at runtime from lfs.writedir()
+    -- since the .dlg's DialogLoader sandbox doesn't reliably resolve image
+    -- paths and we can't bake an absolute path into a generic .dlg.
+    local function buildDialFaceSkin()
+        local path = lfs.writedir() .. 'Scripts/Hooks/assets/dial-face.png'
+        return {
+            params = { name = 'staticSkin' },
+            states = {
+                released = {
+                    [1] = {
+                        picture = {
+                            file  = path,
+                            color = '0xffffffff',  -- white = no tint
+                        },
+                    },
+                },
+            },
+        }
+    end
 
     -- --------------------------------------------------------- show / hide ---
     -- Gotcha #4: setVisible(false) destroys the dialog. We toggle visibility
@@ -212,15 +251,21 @@ local function load()
             local txt = (g <= 0) and 'OFF' or (tostring(g) .. '%')
             base.pcall(function() carrier.window.lblNvgVal:setText(txt) end)
         end
-        -- 11 numbers arc-arranged; only the currently-selected gain's number
-        -- is highlighted bright green (acts as the "knob position" indicator).
-        -- Click any other number to jump there, or scroll wheel to spin.
+        -- 11 numbers as rim labels around the dial. Selected gain = bright,
+        -- others = readable grey. Click any to jump.
         for i = 0, 10 do
             local dot = carrier.window['dotNvg' .. i]
             if dot then
                 local skin = (i * 10 == g) and DOT_SKIN_LIT or DOT_SKIN_DIM
                 base.pcall(function() dot:setSkin(skin) end)
             end
+        end
+        -- Move the dial pip to the current gain's tick angle. The 24x24
+        -- pip widget gets repositioned via setBounds.
+        local pip = carrier.window.dialPip
+        local pos = PIP_POS[math.floor(g / 10 + 0.5)]
+        if pip and pos then
+            base.pcall(function() pip:setBounds(pos.x, pos.y, 24, 26) end)
         end
         -- State line
         if carrier.window.lblNvgState then
@@ -333,6 +378,16 @@ local function load()
         wireClick('btnTabCarrier',  function() showTab('carrier')  end)
         wireClick('btnTabMarshall', function() showTab('marshall') end)
         wireClick('btnTabLso',      function() showTab('lso')      end)
+
+        -- LSO tab: apply the dial-face PNG to the background Static. Failure
+        -- here is non-fatal — dial works without the image, just looks worse.
+        if carrier.window.dialFace then
+            local ok, err = base.pcall(function()
+                carrier.window.dialFace:setSkin(buildDialFaceSkin())
+            end)
+            if ok then logInfo('dial face skin applied')
+            else        logErr('dial face skin failed: ' .. tostring(err)) end
+        end
 
         -- LSO tab: NVG gain dial
         local function setNvgGain(pct)
@@ -457,7 +512,7 @@ local function load()
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v0.9)')
+    logInfo('hook loaded (v1.0-beta1)')
 end
 
 local ok, err = pcall(load)

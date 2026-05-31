@@ -1,4 +1,4 @@
--- CarrierGUI dialog layout  (v0.9 — three tabs: CARRIER + MARSHALL + LSO)
+-- CarrierGUI dialog layout  (v1.0-beta1 — three tabs: CARRIER + MARSHALL + LSO)
 -- Loaded by carrier-gui-hook.lua via DialogLoader.spawnDialogFromFile.
 -- The hook wires each btn* child and toggles tab visibility.
 
@@ -163,40 +163,68 @@ my = my + BTN_H + PAD
 c.btnCharlieBroadcast = btn("Broadcast Charlie", PAD, my, 250)
 
 -- ================================================================= LSO TAB ==
--- v0.9: PLAT-cam NVG gain dial — arc of 11 PERCENT NUMBERS (0..100, step 10).
--- The currently-selected gain is highlighted bright green; the rest are dim.
--- This replaces v0.7-v0.8's dot icons, which were broken: DCS uses Lua 5.1
--- and `\xHH` escapes aren't a thing until 5.2. Plain ASCII numbers dodge the
--- issue entirely.
--- Positions are PRE-COMPUTED literal coords — DialogLoader's sandbox lacks
--- math.* / loops.
+-- v1.0: PLAT-cam NVG GAIN DIAL — graphical half-dial. Layout from back to
+-- front (defined in this order so z-stacking is correct):
+--   1) dialFace        — 280x160 PNG, the actual dial bezel + ticks
+--   2) 11 number labels around the rim (outside the bezel)
+--   3) dialPip         — small bright "●" character; hook moves it to the
+--                        current gain position on each update
+-- Big "OFF"/"NN%" readout BELOW the dial; help/status below that.
+-- Pre-computed literal coords (DialogLoader's sandbox blocks math.* loops).
 c.lblLsoNvg = lbl("PLAT-CAM NVG GAIN", PAD, 38, 240, LabelSkin, 18)
 
--- Number labels around a half-arc, centre (190, 150), radius 90.
--- Widget 50x28 (offset -25,-14). Hook swaps colour LIT vs DIM via setSkin.
-local NumLit = mkLabelSkin("0x60ff80ff", 24)   -- bright NVG green
-c.dotNvg0  = lbl("0",   75, 136, 50, NumLit, 28)
-c.dotNvg1  = lbl("10",  79, 108, 50, NumLit, 28)
-c.dotNvg2  = lbl("20",  92,  83, 50, NumLit, 28)
-c.dotNvg3  = lbl("30", 112,  63, 50, NumLit, 28)
-c.dotNvg4  = lbl("40", 137,  50, 50, NumLit, 28)
-c.dotNvg5  = lbl("50", 165,  46, 50, NumLit, 28)
-c.dotNvg6  = lbl("60", 193,  50, 50, NumLit, 28)
-c.dotNvg7  = lbl("70", 218,  63, 50, NumLit, 28)
-c.dotNvg8  = lbl("80", 238,  83, 50, NumLit, 28)
-c.dotNvg9  = lbl("90", 251, 108, 50, NumLit, 28)
-c.dotNvg10 = lbl("100",255, 136, 50, NumLit, 28)
+-- Dial face image. .dlg has no working picture path (relative paths don't
+-- resolve cleanly), so we leave the skin empty — the hook builds a skin
+-- with picture.file = lfs.writedir() ..'Scripts/Hooks/assets/dial-face.png'
+-- and applies it via setSkin at createWindow.
+-- Image is 280x160; dial centre at image (140, 150). Placed at window (50,70)
+-- so dial centre = window (190, 220).
+c.dialFace = {
+    ["params"] = {
+        ["bounds"]  = { ["h"] = 160, ["w"] = 280, ["x"] = 50, ["y"] = 70 },
+        ["enabled"] = true,
+        ["text"]    = "",
+        ["tooltip"] = "",
+        ["visible"] = true,
+        ["zindex"]  = 0,
+    },
+    ["skin"] = { ["params"] = { ["name"] = "staticSkin" } },
+    ["type"] = "Static",
+}
 
--- Big centre readout — mouse-wheel target (hover + scroll spins gain).
+-- 11 number labels around the dial rim. Radius 160 from dial centre (190,220).
+-- Numbers sit OUTSIDE the rim so the dial face shows through unobstructed.
+-- Hook swaps colour LIT vs DIM via setSkin (selected gain = bright green).
+local NumLit = mkLabelSkin("0x60ff80ff", 22)
+c.dotNvg0  = lbl("0",     5, 206, 50, NumLit, 24)
+c.dotNvg1  = lbl("10",   12, 157, 50, NumLit, 24)
+c.dotNvg2  = lbl("20",   35, 112, 50, NumLit, 24)
+c.dotNvg3  = lbl("30",   71,  76, 50, NumLit, 24)
+c.dotNvg4  = lbl("40",  115,  54, 50, NumLit, 24)
+c.dotNvg5  = lbl("50",  165,  46, 50, NumLit, 24)
+c.dotNvg6  = lbl("60",  215,  54, 50, NumLit, 24)
+c.dotNvg7  = lbl("70",  259,  76, 50, NumLit, 24)
+c.dotNvg8  = lbl("80",  295, 112, 50, NumLit, 24)
+c.dotNvg9  = lbl("90",  318, 157, 50, NumLit, 24)
+c.dotNvg10 = lbl("100", 325, 206, 50, NumLit, 24)
+
+-- Dial pip ("●") sitting on the dial face. The hook repositions this widget
+-- each frame to point at the current gain. Initial position = 0% (left).
+-- "\226\151\143" is decimal-escape U+25CF (●) — Lua 5.1 supports decimal
+-- escapes; the v0.8 hex-escape bug doesn't apply here.
+local PipSkin = mkLabelSkin("0xfffeb0ff", 24)
+c.dialPip = lbl("\226\151\143", 67, 207, 24, PipSkin, 26)
+
+-- Big centre readout — mouse-wheel target — BELOW the dial.
 local BigSkin = mkLabelSkin("0xffffffff", 40)
-c.lblNvgVal = lbl("OFF", 90, 120, 200, BigSkin, 50)
+c.lblNvgVal = lbl("OFF", 90, 240, 200, BigSkin, 50)
 
 -- State + help below
-c.lblNvgState = lbl("normal feed", PAD, 210, W - PAD*2, ValueSkin, 22)
+c.lblNvgState = lbl("normal feed", PAD, 300, W - PAD*2, ValueSkin, 22)
 c.lblLsoHelp  = lbl(
     "Scroll wheel over the centre readout to spin the gain.\n" ..
     "Or click any number to jump directly to that gain.",
-    PAD, 248, W - PAD*2, CapSkin, 40)
+    PAD, 330, W - PAD*2, CapSkin, 40)
 
 -- ============================================================= SHARED STATUS ==
 local StatusSkin = {

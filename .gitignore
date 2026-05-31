@@ -14,6 +14,10 @@ Patcher/python/
 __pycache__/
 *.pyc
 
+# Local "known-good" rollback copies (kept off-repo on purpose; the
+# canonical fallbacks are git tag v0.9-stable and the GitHub release zip).
+known-good-*/
+
 # Editor / OS cruft
 .vscode/
 .idea/

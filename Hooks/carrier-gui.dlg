@@ -1,4 +1,4 @@
--- CarrierGUI dialog layout  (v0.6 — three tabs: CARRIER + MARSHALL + LSO)
+-- CarrierGUI dialog layout  (v0.7 — three tabs: CARRIER + MARSHALL + LSO)
 -- Loaded by carrier-gui-hook.lua via DialogLoader.spawnDialogFromFile.
 -- The hook wires each btn* child and toggles tab visibility.
 
@@ -163,22 +163,38 @@ my = my + BTN_H + PAD
 c.btnCharlieBroadcast = btn("Broadcast Charlie", PAD, my, 250)
 
 -- ================================================================= LSO TAB ==
--- LSO tools. v0.6 ships only the PLAT-cam NVG gain dial. Widgets overlap the
--- other tabs in Y; only one tab is visible at a time (hook toggles).
-local ly = 44
-c.lblLsoNvg      = lbl("PLAT-CAM NVG", PAD, ly)
-ly = ly + 26
-c.lblNvgCap      = lbl("Gain:", PAD, ly + 4, 70, CapSkin)
-c.btnNvgDown     = btn("-", PAD + 76,  ly, 40)
-c.lblNvgVal      = lbl("0%", PAD + 122, ly + 4, 56, ValueSkin)
-c.btnNvgUp       = btn("+", PAD + 182, ly, 40)
-ly = ly + BTN_H + PAD*2
-c.lblNvgState    = lbl("NVG: OFF (normal feed)", PAD, ly, W - PAD*2, ValueSkin, 22)
-ly = ly + 30
-c.lblLsoHelp     = lbl(
-    "Requires LSO/Enable-NvgDial.ps1 run once (Install.bat can do this for you).\n" ..
-    "Patches gui.fx + PLATCameraUI.lua. Step 10% per click; 0% = normal feed.",
-    PAD, ly, W - PAD*2, CapSkin, 40)
+-- v0.7: PLAT-cam NVG gain dial — arc of 11 dots ("●" / "○") around a big
+-- mouse-wheel-scrollable percent display in the middle. Click any dot to
+-- jump straight to that gain (0..100% in 10% steps). Widgets overlap the
+-- other tabs in Y; only one tab is visible at a time.
+c.lblLsoNvg = lbl("PLAT-CAM NVG", PAD, 44)
+
+-- Dot skins. "●" U+25CF (filled) and "○" U+25CB (open). We use text-swap on
+-- a single Static per dot so we don't have to load two skins each.
+local DotSkin = mkLabelSkin("0x40ff80ff", 22)   -- big green NVG-tinted dots
+
+-- Arc geometry: half-circle gauge opening downward. The 11 dots span 180°
+-- from left (gain 0%) through top (50%) to right (100%).
+local GX, GY, GR = 190, 130, 70   -- gauge center within window, radius
+for i = 0, 10 do
+    local ang = math.rad(180 - (i / 10) * 180)
+    local px  = GX + GR * math.cos(ang)
+    local py  = GY - GR * math.sin(ang)
+    local name = "dotNvg" .. i
+    c[name] = lbl("o", math.floor(px - 11), math.floor(py - 11), 22, DotSkin, 22)
+end
+
+-- Big center percent readout. This is also the mouse-wheel input target —
+-- hover over it and scroll wheel up/down to spin the gain in 10% steps.
+local BigSkin = mkLabelSkin("0xffffffff", 28)
+c.lblNvgVal = lbl("0%", GX - 50, GY - 14, 100, BigSkin, 32)
+
+-- State + help below the gauge
+c.lblNvgState = lbl("NVG: OFF (normal feed)", PAD, 220, W - PAD*2, ValueSkin, 22)
+c.lblLsoHelp  = lbl(
+    "Spin: hover the % readout and scroll mouse wheel.\n" ..
+    "Or click any dot to jump to that gain.",
+    PAD, 252, W - PAD*2, CapSkin, 40)
 
 -- ============================================================= SHARED STATUS ==
 local StatusSkin = {

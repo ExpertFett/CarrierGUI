@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v0.6 — LSO tab + NVG gain dial)
+-- CarrierGUI Hook  (rebuild v0.7 — round arc dial + mouse wheel spin)
 -- ============================================================================
 -- Loads the carrier-gui.dlg dialog and toggles it with Ctrl+Shift+c.
 -- Each button fires a numbered user flag via net.dostring_in("server", ...).
@@ -104,8 +104,10 @@ local function load()
         'btnCharlieUp','btnCharlieBroadcast',
     }
     local LSO_WIDGETS = {
-        'lblLsoNvg', 'lblNvgCap', 'btnNvgDown', 'lblNvgVal', 'btnNvgUp',
-        'lblNvgState', 'lblLsoHelp',
+        'lblLsoNvg',
+        'dotNvg0','dotNvg1','dotNvg2','dotNvg3','dotNvg4','dotNvg5',
+        'dotNvg6','dotNvg7','dotNvg8','dotNvg9','dotNvg10',
+        'lblNvgVal', 'lblNvgState', 'lblLsoHelp',
     }
 
     -- --------------------------------------------------------- show / hide ---
@@ -180,12 +182,29 @@ local function load()
         if not ok then logErr('NVG file write failed: ' .. tostring(err)) end
     end
 
+    -- "●" U+25CF filled circle, "○" U+25CB open circle. Lit dots = ≤ gain.
+    local NVG_DOT_LIT   = '\xE2\x97\x8F'   -- ●
+    local NVG_DOT_UNLIT = '\xE2\x97\x8B'   -- ○
+
     local function updateNvgDisplay()
         if not carrier.window then return end
         local g = carrier.nvgGain
+        -- big percent in the center
         if carrier.window.lblNvgVal then
             base.pcall(function() carrier.window.lblNvgVal:setText(tostring(g) .. '%') end)
         end
+        -- dot array: dot i lights up when its step (i*10%) <= current gain.
+        -- Dot 0 always lit (it represents the "0%" position itself).
+        for i = 0, 10 do
+            local dot = carrier.window['dotNvg' .. i]
+            if dot then
+                local lit = (i * 10) <= g
+                base.pcall(function()
+                    dot:setText(lit and NVG_DOT_LIT or NVG_DOT_UNLIT)
+                end)
+            end
+        end
+        -- state line
         if carrier.window.lblNvgState then
             local label
             if g <= 0       then label = 'NVG: OFF (normal feed)'
@@ -297,19 +316,51 @@ local function load()
         wireClick('btnTabMarshall', function() showTab('marshall') end)
         wireClick('btnTabLso',      function() showTab('lso')      end)
 
-        -- LSO tab: NVG gain stepper (0..100% in 10% steps)
-        wireClick('btnNvgDown', function()
-            carrier.nvgGain = math.max(0, carrier.nvgGain - 10)
+        -- LSO tab: NVG gain dial
+        local function setNvgGain(pct)
+            if pct < 0   then pct = 0   end
+            if pct > 100 then pct = 100 end
+            -- snap to 10% steps
+            pct = math.floor(pct / 10 + 0.5) * 10
+            if pct == carrier.nvgGain then return end
+            carrier.nvgGain = pct
             writeNvgState()
             updateNvgDisplay()
-            logInfo('NVG gain -> ' .. carrier.nvgGain .. '%')
-        end)
-        wireClick('btnNvgUp', function()
-            carrier.nvgGain = math.min(100, carrier.nvgGain + 10)
-            writeNvgState()
-            updateNvgDisplay()
-            logInfo('NVG gain -> ' .. carrier.nvgGain .. '%')
-        end)
+            logInfo('NVG gain -> ' .. pct .. '%')
+        end
+
+        -- Mouse wheel on the big % readout: scroll up = +10%, down = -10%.
+        -- The wheel callback's arg signature varies across DCS versions; we
+        -- accept any non-zero numeric and use its sign.
+        local function wheelDelta(...)
+            local args = {...}
+            for i = #args, 1, -1 do
+                local v = args[i]
+                if type(v) == 'number' and v ~= 0 then return v end
+            end
+            return 0
+        end
+        local valWidget = carrier.window.lblNvgVal
+        if valWidget and valWidget.addMouseWheelCallback then
+            base.pcall(function()
+                valWidget:addMouseWheelCallback(function(self, ...)
+                    local d = wheelDelta(...)
+                    if d > 0 then setNvgGain(carrier.nvgGain + 10)
+                    elseif d < 0 then setNvgGain(carrier.nvgGain - 10) end
+                end)
+            end)
+            logInfo('NVG wheel handler attached')
+        else
+            logErr('lblNvgVal missing addMouseWheelCallback — wheel input disabled')
+        end
+
+        -- Click any dot to jump directly to that gain (fallback for inputs
+        -- where the scroll wheel isn't mapped, e.g. controllers in VR).
+        for i = 0, 10 do
+            local pct = i * 10
+            wireClick('dotNvg' .. i, function() setNvgGain(pct) end)
+        end
+
         -- Sync the on-disk file with our initial state (0%) so a fresh DCS
         -- launch doesn't inherit a stale value from a previous session.
         writeNvgState()
@@ -388,7 +439,7 @@ local function load()
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v0.6)')
+    logInfo('hook loaded (v0.7)')
 end
 
 local ok, err = pcall(load)

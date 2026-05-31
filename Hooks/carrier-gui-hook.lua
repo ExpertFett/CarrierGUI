@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v0.8 — bigger LED dial + setSkin color swap)
+-- CarrierGUI Hook  (rebuild v0.9 — arc of numbers (Lua 5.1 x escape bug fix))
 -- ============================================================================
 -- Loads the carrier-gui.dlg dialog and toggles it with Ctrl+Shift+c.
 -- Each button fires a numbered user flag via net.dostring_in("server", ...).
@@ -107,13 +107,12 @@ local function load()
         'lblLsoNvg',
         'dotNvg0','dotNvg1','dotNvg2','dotNvg3','dotNvg4','dotNvg5',
         'dotNvg6','dotNvg7','dotNvg8','dotNvg9','dotNvg10',
-        'lblTick0', 'lblTick50', 'lblTickMax',
         'lblNvgVal', 'lblNvgState', 'lblLsoHelp',
     }
 
-    -- LED-dot skins for the gain dial. Same shape as the .dlg's skin tables;
-    -- setSkin(table) on a Static accepts this format. Lit = bright NVG green,
-    -- Dim = near-black so unlit segments fade into the background.
+    -- Skins for the gain-dial number labels. setSkin(table) on a Static
+    -- accepts a table in this shape. SEL = the currently-selected gain
+    -- value (bright green). DIM = the other values (visible but quiet).
     local function makeDotSkin(color)
         return {
             params = { name = 'staticSkin', textWrapping = false },
@@ -123,15 +122,15 @@ local function load()
                         text = {
                             color      = color,
                             font       = 'DejaVuLGCSansCondensed-Bold.ttf',
-                            lineHeight = 32,
+                            lineHeight = 24,
                         },
                     },
                 },
             },
         }
     end
-    local DOT_SKIN_LIT = makeDotSkin('0x60ff80ff')   -- bright NVG green
-    local DOT_SKIN_DIM = makeDotSkin('0x252525ff')   -- near-black grey
+    local DOT_SKIN_LIT = makeDotSkin('0x60ff80ff')   -- selected: bright NVG green
+    local DOT_SKIN_DIM = makeDotSkin('0x707070ff')   -- unselected: mid grey (readable)
 
     -- --------------------------------------------------------- show / hide ---
     -- Gotcha #4: setVisible(false) destroys the dialog. We toggle visibility
@@ -213,13 +212,13 @@ local function load()
             local txt = (g <= 0) and 'OFF' or (tostring(g) .. '%')
             base.pcall(function() carrier.window.lblNvgVal:setText(txt) end)
         end
-        -- 11 LED dots arc-arranged; dot i lit IFF gain >= i*10. At gain=0 only
-        -- the leftmost dot (the "0% position") stays lit as a marker. At 100%
-        -- all 11 are lit.
+        -- 11 numbers arc-arranged; only the currently-selected gain's number
+        -- is highlighted bright green (acts as the "knob position" indicator).
+        -- Click any other number to jump there, or scroll wheel to spin.
         for i = 0, 10 do
             local dot = carrier.window['dotNvg' .. i]
             if dot then
-                local skin = (g >= i * 10) and DOT_SKIN_LIT or DOT_SKIN_DIM
+                local skin = (i * 10 == g) and DOT_SKIN_LIT or DOT_SKIN_DIM
                 base.pcall(function() dot:setSkin(skin) end)
             end
         end
@@ -458,7 +457,7 @@ local function load()
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v0.8)')
+    logInfo('hook loaded (v0.9)')
 end
 
 local ok, err = pcall(load)

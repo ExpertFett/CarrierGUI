@@ -1,4 +1,4 @@
--- CarrierGUI dialog layout  (v0.8 — three tabs: CARRIER + MARSHALL + LSO)
+-- CarrierGUI dialog layout  (v0.9 — three tabs: CARRIER + MARSHALL + LSO)
 -- Loaded by carrier-gui-hook.lua via DialogLoader.spawnDialogFromFile.
 -- The hook wires each btn* child and toggles tab visibility.
 
@@ -163,33 +163,29 @@ my = my + BTN_H + PAD
 c.btnCharlieBroadcast = btn("Broadcast Charlie", PAD, my, 250)
 
 -- ================================================================= LSO TAB ==
--- v0.8: PLAT-cam NVG gain dial — 11 LED-style dots in a half-arc, big "OFF"
--- or "NN%" readout in the centre. Dots start green; the hook will dim
--- unlit ones via setSkin. Positions are PRE-COMPUTED literal coords —
--- DialogLoader's .dlg sandbox lacks math.* / loops are unreliable.
+-- v0.9: PLAT-cam NVG gain dial — arc of 11 PERCENT NUMBERS (0..100, step 10).
+-- The currently-selected gain is highlighted bright green; the rest are dim.
+-- This replaces v0.7-v0.8's dot icons, which were broken: DCS uses Lua 5.1
+-- and `\xHH` escapes aren't a thing until 5.2. Plain ASCII numbers dodge the
+-- issue entirely.
+-- Positions are PRE-COMPUTED literal coords — DialogLoader's sandbox lacks
+-- math.* / loops.
 c.lblLsoNvg = lbl("PLAT-CAM NVG GAIN", PAD, 38, 240, LabelSkin, 18)
 
--- LED character "●" U+25CF, big and bold. Hook swaps colour via setSkin
--- (LIT bright green vs DIM near-black) — text never changes after load.
-local LedLit = mkLabelSkin("0x60ff80ff", 32)   -- bright NVG green
--- Half-arc dots, centre (190, 150), radius 90, widgets 32x32 (offset -16,-16)
-c.dotNvg0  = lbl("\xE2\x97\x8F",  84, 134, 32, LedLit, 32)
-c.dotNvg1  = lbl("\xE2\x97\x8F",  88, 106, 32, LedLit, 32)
-c.dotNvg2  = lbl("\xE2\x97\x8F", 101,  81, 32, LedLit, 32)
-c.dotNvg3  = lbl("\xE2\x97\x8F", 121,  61, 32, LedLit, 32)
-c.dotNvg4  = lbl("\xE2\x97\x8F", 146,  48, 32, LedLit, 32)
-c.dotNvg5  = lbl("\xE2\x97\x8F", 174,  44, 32, LedLit, 32)
-c.dotNvg6  = lbl("\xE2\x97\x8F", 202,  48, 32, LedLit, 32)
-c.dotNvg7  = lbl("\xE2\x97\x8F", 227,  61, 32, LedLit, 32)
-c.dotNvg8  = lbl("\xE2\x97\x8F", 247,  81, 32, LedLit, 32)
-c.dotNvg9  = lbl("\xE2\x97\x8F", 260, 106, 32, LedLit, 32)
-c.dotNvg10 = lbl("\xE2\x97\x8F", 264, 134, 32, LedLit, 32)
-
--- Tick labels at each end of the arc — "0" left, "MAX" right, "50" top
-local TickSkin = mkLabelSkin("0xa0a0a0ff", 12)
-c.lblTick0   = lbl("0",   84, 168, 32, TickSkin, 14)
-c.lblTick50  = lbl("50", 178,  28, 32, TickSkin, 14)
-c.lblTickMax = lbl("MAX",256, 168, 40, TickSkin, 14)
+-- Number labels around a half-arc, centre (190, 150), radius 90.
+-- Widget 50x28 (offset -25,-14). Hook swaps colour LIT vs DIM via setSkin.
+local NumLit = mkLabelSkin("0x60ff80ff", 24)   -- bright NVG green
+c.dotNvg0  = lbl("0",   75, 136, 50, NumLit, 28)
+c.dotNvg1  = lbl("10",  79, 108, 50, NumLit, 28)
+c.dotNvg2  = lbl("20",  92,  83, 50, NumLit, 28)
+c.dotNvg3  = lbl("30", 112,  63, 50, NumLit, 28)
+c.dotNvg4  = lbl("40", 137,  50, 50, NumLit, 28)
+c.dotNvg5  = lbl("50", 165,  46, 50, NumLit, 28)
+c.dotNvg6  = lbl("60", 193,  50, 50, NumLit, 28)
+c.dotNvg7  = lbl("70", 218,  63, 50, NumLit, 28)
+c.dotNvg8  = lbl("80", 238,  83, 50, NumLit, 28)
+c.dotNvg9  = lbl("90", 251, 108, 50, NumLit, 28)
+c.dotNvg10 = lbl("100",255, 136, 50, NumLit, 28)
 
 -- Big centre readout — mouse-wheel target (hover + scroll spins gain).
 local BigSkin = mkLabelSkin("0xffffffff", 40)
@@ -199,7 +195,7 @@ c.lblNvgVal = lbl("OFF", 90, 120, 200, BigSkin, 50)
 c.lblNvgState = lbl("normal feed", PAD, 210, W - PAD*2, ValueSkin, 22)
 c.lblLsoHelp  = lbl(
     "Scroll wheel over the centre readout to spin the gain.\n" ..
-    "Or click any LED dot to jump directly to that gain.",
+    "Or click any number to jump directly to that gain.",
     PAD, 248, W - PAD*2, CapSkin, 40)
 
 -- ============================================================= SHARED STATUS ==

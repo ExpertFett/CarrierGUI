@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v0.4 — marshall tab)
+-- CarrierGUI Hook  (rebuild v0.5 — LSO tab + NVG toggle)
 -- ============================================================================
 -- Loads the carrier-gui.dlg dialog and toggles it with Ctrl+Shift+c.
 -- Each button fires a numbered user flag via net.dostring_in("server", ...).
@@ -26,6 +26,7 @@ local function load()
     local Gui            = require('dxgui')
     local net            = base.net
     local log            = base.log
+    local io             = base.io
 
     local function logInfo(msg)
         log.write('CarrierGUI', log.INFO, tostring(msg))
@@ -56,6 +57,7 @@ local function load()
         tab              = 'carrier',
         marshalFlights   = 1,     -- stepper: # of flights in the marshal stack
         charlieMin       = 15,    -- stepper: minutes to Charlie / push
+        nvgOn            = false, -- PLAT-cam NVG state (LSO tab)
     }
 
     -- button child name -> flag number (simple fire-and-forget buttons)
@@ -100,6 +102,9 @@ local function load()
         'btnFlightsDown','lblFlightsVal','btnFlightsUp','btnMarshalBroadcast',
         'lblMarCharlie','lblCharlieCap','btnCharlieDown','lblCharlieVal',
         'btnCharlieUp','btnCharlieBroadcast',
+    }
+    local LSO_WIDGETS = {
+        'lblLsoNvg', 'btnNvgToggle', 'lblNvgState', 'lblLsoHelp',
     }
 
     -- --------------------------------------------------------- show / hide ---
@@ -146,9 +151,42 @@ local function load()
         carrier.tab = tab
         local carrierVis  = (tab == 'carrier')
         local marshallVis = (tab == 'marshall')
+        local lsoVis      = (tab == 'lso')
         for _, n in base.ipairs(CARRIER_WIDGETS)  do setWidgetVisible(n, carrierVis)  end
         for _, n in base.ipairs(MARSHALL_WIDGETS) do setWidgetVisible(n, marshallVis) end
+        for _, n in base.ipairs(LSO_WIDGETS)      do setWidgetVisible(n, lsoVis)      end
         logInfo('tab -> ' .. tab)
+    end
+
+    -- ------------------------------------------------------ PLAT-cam NVG IPC ---
+    -- We write a tiny "1" / "0" file in Saved Games\DCS\ that the patched
+    -- PLATCameraUI.lua reads each frame to decide the PLAT widget color.
+    -- File IPC because the SC dxgui dialog runs in a different Lua state from
+    -- this hook — _G isn't shared.
+    local NVG_FILE = 'carriergui_nvg.txt'
+
+    local function writeNvgState()
+        local path = lfs.writedir() .. NVG_FILE
+        local ok, err = base.pcall(function()
+            local f = io.open(path, 'w')
+            if f then
+                f:write(carrier.nvgOn and '1' or '0')
+                f:close()
+            end
+        end)
+        if not ok then logErr('NVG file write failed: ' .. tostring(err)) end
+    end
+
+    local function updateNvgButton()
+        if not carrier.window then return end
+        local label  = 'Toggle NVG   (currently ' .. (carrier.nvgOn and 'ON' or 'OFF') .. ')'
+        local state  = 'NVG state: ' .. (carrier.nvgOn and 'ON  (green NVG)' or 'OFF (normal feed)')
+        if carrier.window.btnNvgToggle then
+            base.pcall(function() carrier.window.btnNvgToggle:setText(label) end)
+        end
+        if carrier.window.lblNvgState then
+            base.pcall(function() carrier.window.lblNvgState:setText(state) end)
+        end
     end
 
     -- ------------------------------------------------------ stepper display ---
@@ -251,6 +289,19 @@ local function load()
         -- tab buttons
         wireClick('btnTabCarrier',  function() showTab('carrier')  end)
         wireClick('btnTabMarshall', function() showTab('marshall') end)
+        wireClick('btnTabLso',      function() showTab('lso')      end)
+
+        -- LSO tab: NVG toggle
+        wireClick('btnNvgToggle', function()
+            carrier.nvgOn = not carrier.nvgOn
+            writeNvgState()
+            updateNvgButton()
+            logInfo('NVG -> ' .. (carrier.nvgOn and 'ON' or 'OFF'))
+        end)
+        -- Make sure the on-disk file matches our initial state (OFF) so a fresh
+        -- start of DCS doesn't inherit a stale "1" from a previous session.
+        writeNvgState()
+        updateNvgButton()
 
         -- marshal stack steppers (1..8 flights)
         wireClick('btnFlightsDown', function()
@@ -325,7 +376,7 @@ local function load()
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v0.4)')
+    logInfo('hook loaded (v0.5)')
 end
 
 local ok, err = pcall(load)

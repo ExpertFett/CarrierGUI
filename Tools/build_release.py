@@ -32,6 +32,8 @@ INCLUDE = [
     'Patcher/carrier-gui-bridge.lua',
     'Patcher/Patch Mission.bat',
     'Patcher/Revert Mission.bat',
+    'LSO/Enable-NvgToggle.ps1',
+    'LSO/Disable-NvgToggle.ps1',
     'Install.bat',
     'Uninstall.bat',
 ]

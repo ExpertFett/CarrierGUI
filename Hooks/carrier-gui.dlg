@@ -1,4 +1,4 @@
--- CarrierGUI dialog layout  (v0.4 — two tabs: CARRIER + MARSHALL)
+-- CarrierGUI dialog layout  (v0.5 — three tabs: CARRIER + MARSHALL + LSO)
 -- Loaded by carrier-gui-hook.lua via DialogLoader.spawnDialogFromFile.
 -- The hook wires each btn* child and toggles tab visibility.
 
@@ -78,8 +78,10 @@ dialog = {
 local c = dialog.children
 
 -- ---------------------------------------------------------------- TAB BAR ---
-c.btnTabCarrier  = btn("CARRIER",  PAD,        4, 120)
-c.btnTabMarshall = btn("MARSHALL", PAD + 126,  4, 120)
+-- Three tabs across the top — slightly narrower to fit within 380 px window.
+c.btnTabCarrier  = btn("CARRIER",  PAD,        4, 118)
+c.btnTabMarshall = btn("MARSHALL", PAD + 124,  4, 118)
+c.btnTabLso      = btn("LSO",      PAD + 248,  4, 118)
 
 -- =============================================================== CARRIER TAB ==
 local y = 40
@@ -159,6 +161,21 @@ c.lblCharlieVal  = lbl("15", PAD + 122, my + 4, 36, ValueSkin)
 c.btnCharlieUp   = btn("+", PAD + 162, my, 40)
 my = my + BTN_H + PAD
 c.btnCharlieBroadcast = btn("Broadcast Charlie", PAD, my, 250)
+
+-- ================================================================= LSO TAB ==
+-- LSO tools. v0.5 ships only the PLAT-cam NVG toggle. Widgets overlap the
+-- other tabs in Y; only one tab is visible at a time (hook toggles).
+local ly = 44
+c.lblLsoNvg      = lbl("PLAT-CAM NVG", PAD, ly)
+ly = ly + 26
+c.btnNvgToggle   = btn("Toggle NVG   (currently OFF)", PAD, ly, W - PAD*2)
+ly = ly + BTN_H + PAD*2
+c.lblNvgState    = lbl("NVG state: OFF  (normal feed)", PAD, ly, W - PAD*2, ValueSkin, 22)
+ly = ly + 30
+c.lblLsoHelp     = lbl(
+    "Requires PlatCam-NVG installed + LSO/Enable-NvgToggle.ps1 run once.\n" ..
+    "Without those, this button has no visible effect.",
+    PAD, ly, W - PAD*2, CapSkin, 40)
 
 -- ============================================================= SHARED STATUS ==
 local StatusSkin = {

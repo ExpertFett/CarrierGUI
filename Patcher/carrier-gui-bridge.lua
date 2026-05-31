@@ -1,4 +1,4 @@
--- CarrierGUI Mission Bridge  (rebuild v0.4 — marshall broadcasts added)
+-- CarrierGUI Mission Bridge  (rebuild v0.5 — (no bridge changes; LSO toggle is hook-side via file IPC))
 -- ============================================================================
 -- Embedded into every patched .miz by Tools/patch_miz.py.
 -- Polls user flags set by the Hook (Ctrl+Shift+c GUI), then pushes the
@@ -486,4 +486,4 @@ end
 -- ============================================================================
 buildBeaconCache()
 timer.scheduleFunction(poll, {}, timer.getTime() + POLL_INTERVAL)
-say('Bridge online (v0.4) — auto-discovering carriers', 6)
+say('Bridge online (v0.5) — auto-discovering carriers', 6)

@@ -55,6 +55,18 @@ if "%INSTALLED%"=="0" (
     echo   2. Start a mission, then press Ctrl+Shift+c to open the panel.
     echo   3. To make a mission's buttons work, drag the .miz onto
     echo      "Patcher\Patch Mission.bat".
+    echo.
+    echo ----------------------------------------------------------------
+    echo The LSO tab has a PLAT-cam NVG gain dial. It requires patching
+    echo two DCS files (gui.fx + PLATCameraUI.lua). UAC will prompt.
+    echo This is OPTIONAL — skip if you don't want the NVG feature.
+    echo ----------------------------------------------------------------
+    set /p ENABLE_NVG="Enable LSO NVG dial now? [y/N] "
+    if /i "!ENABLE_NVG!"=="y" (
+        powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%LSO\Enable-NvgDial.ps1"
+    ) else (
+        echo Skipped. You can run "LSO\Enable-NvgDial.ps1" later to enable it.
+    )
 )
 echo.
 pause

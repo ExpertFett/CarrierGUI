@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v0.5 — LSO tab + NVG toggle)
+-- CarrierGUI Hook  (rebuild v0.6 — LSO tab + NVG gain dial)
 -- ============================================================================
 -- Loads the carrier-gui.dlg dialog and toggles it with Ctrl+Shift+c.
 -- Each button fires a numbered user flag via net.dostring_in("server", ...).
@@ -57,7 +57,7 @@ local function load()
         tab              = 'carrier',
         marshalFlights   = 1,     -- stepper: # of flights in the marshal stack
         charlieMin       = 15,    -- stepper: minutes to Charlie / push
-        nvgOn            = false, -- PLAT-cam NVG state (LSO tab)
+        nvgGain          = 0,     -- LSO tab NVG gain, 0..100 (percent)
     }
 
     -- button child name -> flag number (simple fire-and-forget buttons)
@@ -104,7 +104,8 @@ local function load()
         'btnCharlieUp','btnCharlieBroadcast',
     }
     local LSO_WIDGETS = {
-        'lblLsoNvg', 'btnNvgToggle', 'lblNvgState', 'lblLsoHelp',
+        'lblLsoNvg', 'lblNvgCap', 'btnNvgDown', 'lblNvgVal', 'btnNvgUp',
+        'lblNvgState', 'lblLsoHelp',
     }
 
     -- --------------------------------------------------------- show / hide ---
@@ -159,10 +160,12 @@ local function load()
     end
 
     -- ------------------------------------------------------ PLAT-cam NVG IPC ---
-    -- We write a tiny "1" / "0" file in Saved Games\DCS\ that the patched
-    -- PLATCameraUI.lua reads each frame to decide the PLAT widget color.
-    -- File IPC because the SC dxgui dialog runs in a different Lua state from
-    -- this hook — _G isn't shared.
+    -- We write the NVG gain as a percent ("0".."100") to Saved Games\DCS\
+    -- carriergui_nvg.txt. The patched PLATCameraUI.lua reads it each frame
+    -- and sets the PLAT widget color's ALPHA byte accordingly — the patched
+    -- gui.fx then uses that alpha as a lerp mixer between the normal feed
+    -- and the NVG-amplified output. 0% = normal feed, 100% = full NVG.
+    -- File IPC because the SC dxgui dialog runs in a different Lua state.
     local NVG_FILE = 'carriergui_nvg.txt'
 
     local function writeNvgState()
@@ -170,22 +173,25 @@ local function load()
         local ok, err = base.pcall(function()
             local f = io.open(path, 'w')
             if f then
-                f:write(carrier.nvgOn and '1' or '0')
+                f:write(tostring(carrier.nvgGain))
                 f:close()
             end
         end)
         if not ok then logErr('NVG file write failed: ' .. tostring(err)) end
     end
 
-    local function updateNvgButton()
+    local function updateNvgDisplay()
         if not carrier.window then return end
-        local label  = 'Toggle NVG   (currently ' .. (carrier.nvgOn and 'ON' or 'OFF') .. ')'
-        local state  = 'NVG state: ' .. (carrier.nvgOn and 'ON  (green NVG)' or 'OFF (normal feed)')
-        if carrier.window.btnNvgToggle then
-            base.pcall(function() carrier.window.btnNvgToggle:setText(label) end)
+        local g = carrier.nvgGain
+        if carrier.window.lblNvgVal then
+            base.pcall(function() carrier.window.lblNvgVal:setText(tostring(g) .. '%') end)
         end
         if carrier.window.lblNvgState then
-            base.pcall(function() carrier.window.lblNvgState:setText(state) end)
+            local label
+            if g <= 0       then label = 'NVG: OFF (normal feed)'
+            elseif g >= 100 then label = 'NVG: MAX (full amplification)'
+            else                 label = 'NVG: ' .. g .. '% (partial amplification)' end
+            base.pcall(function() carrier.window.lblNvgState:setText(label) end)
         end
     end
 
@@ -291,17 +297,23 @@ local function load()
         wireClick('btnTabMarshall', function() showTab('marshall') end)
         wireClick('btnTabLso',      function() showTab('lso')      end)
 
-        -- LSO tab: NVG toggle
-        wireClick('btnNvgToggle', function()
-            carrier.nvgOn = not carrier.nvgOn
+        -- LSO tab: NVG gain stepper (0..100% in 10% steps)
+        wireClick('btnNvgDown', function()
+            carrier.nvgGain = math.max(0, carrier.nvgGain - 10)
             writeNvgState()
-            updateNvgButton()
-            logInfo('NVG -> ' .. (carrier.nvgOn and 'ON' or 'OFF'))
+            updateNvgDisplay()
+            logInfo('NVG gain -> ' .. carrier.nvgGain .. '%')
         end)
-        -- Make sure the on-disk file matches our initial state (OFF) so a fresh
-        -- start of DCS doesn't inherit a stale "1" from a previous session.
+        wireClick('btnNvgUp', function()
+            carrier.nvgGain = math.min(100, carrier.nvgGain + 10)
+            writeNvgState()
+            updateNvgDisplay()
+            logInfo('NVG gain -> ' .. carrier.nvgGain .. '%')
+        end)
+        -- Sync the on-disk file with our initial state (0%) so a fresh DCS
+        -- launch doesn't inherit a stale value from a previous session.
         writeNvgState()
-        updateNvgButton()
+        updateNvgDisplay()
 
         -- marshal stack steppers (1..8 flights)
         wireClick('btnFlightsDown', function()
@@ -376,7 +388,7 @@ local function load()
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v0.5)')
+    logInfo('hook loaded (v0.6)')
 end
 
 local ok, err = pcall(load)

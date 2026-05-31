@@ -1,4 +1,4 @@
--- CarrierGUI dialog layout  (v0.5 — three tabs: CARRIER + MARSHALL + LSO)
+-- CarrierGUI dialog layout  (v0.6 — three tabs: CARRIER + MARSHALL + LSO)
 -- Loaded by carrier-gui-hook.lua via DialogLoader.spawnDialogFromFile.
 -- The hook wires each btn* child and toggles tab visibility.
 
@@ -163,18 +163,21 @@ my = my + BTN_H + PAD
 c.btnCharlieBroadcast = btn("Broadcast Charlie", PAD, my, 250)
 
 -- ================================================================= LSO TAB ==
--- LSO tools. v0.5 ships only the PLAT-cam NVG toggle. Widgets overlap the
+-- LSO tools. v0.6 ships only the PLAT-cam NVG gain dial. Widgets overlap the
 -- other tabs in Y; only one tab is visible at a time (hook toggles).
 local ly = 44
 c.lblLsoNvg      = lbl("PLAT-CAM NVG", PAD, ly)
 ly = ly + 26
-c.btnNvgToggle   = btn("Toggle NVG   (currently OFF)", PAD, ly, W - PAD*2)
+c.lblNvgCap      = lbl("Gain:", PAD, ly + 4, 70, CapSkin)
+c.btnNvgDown     = btn("-", PAD + 76,  ly, 40)
+c.lblNvgVal      = lbl("0%", PAD + 122, ly + 4, 56, ValueSkin)
+c.btnNvgUp       = btn("+", PAD + 182, ly, 40)
 ly = ly + BTN_H + PAD*2
-c.lblNvgState    = lbl("NVG state: OFF  (normal feed)", PAD, ly, W - PAD*2, ValueSkin, 22)
+c.lblNvgState    = lbl("NVG: OFF (normal feed)", PAD, ly, W - PAD*2, ValueSkin, 22)
 ly = ly + 30
 c.lblLsoHelp     = lbl(
-    "Requires PlatCam-NVG installed + LSO/Enable-NvgToggle.ps1 run once.\n" ..
-    "Without those, this button has no visible effect.",
+    "Requires LSO/Enable-NvgDial.ps1 run once (Install.bat can do this for you).\n" ..
+    "Patches gui.fx + PLATCameraUI.lua. Step 10% per click; 0% = normal feed.",
     PAD, ly, W - PAD*2, CapSkin, 40)
 
 -- ============================================================= SHARED STATUS ==

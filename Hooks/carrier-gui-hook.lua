@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v1.1-beta1 — full LSO tab (WIRE, DECK, ZOOM, CALLS, SHIP))
+-- CarrierGUI Hook  (rebuild v1.2-beta1 — CASE III recovery monitor + LSO event prompts)
 -- ============================================================================
 -- Loads the carrier-gui.dlg dialog and toggles it with Ctrl+Shift+c.
 -- Each button fires a numbered user flag via net.dostring_in("server", ...).
@@ -133,6 +133,8 @@ local function load()
         'lblCallsHdr', 'btnWaveOff','btnCut','btnBingo','btnRecComp',
         -- SHIP STATUS (live readout)
         'lblShipHdr', 'lblShipHdg', 'lblShipWind',
+        -- RECOVERY EVENTS (last 3 LSO prompts from bridge monitor)
+        'lblEventsHdr', 'lblEvent1', 'lblEvent2', 'lblEvent3',
         -- status
         'lblNvgState',
     }
@@ -163,7 +165,7 @@ local function load()
     -- Gotcha #4: setVisible(false) destroys the dialog. We toggle visibility
     -- via the SRS-style pattern: real setVisible(true), then either setSize(0,0)
     -- (= hidden) or restore to full size.
-    local FULL_W, FULL_H = 380, 560
+    local FULL_W, FULL_H = 380, 640   -- v1.2: taller to fit RECOVERY EVENTS
 
     -- Set a value-flag (used to pass numeric params like flight count / minutes
     -- to the bridge before firing the action flag).
@@ -364,6 +366,39 @@ local function load()
                     carrier.shipHeadKts or 0, carrier.shipCrossKts or 0)
             end
             base.pcall(function() carrier.window.lblShipWind:setText(txt) end)
+        end
+    end
+
+    -- Recovery events tailing: read carriergui_lso_events.txt (bridge appends
+    -- when inbound aircraft cross CASE III milestones) and show last 3 lines.
+    local LSO_EVENTS_FILE = 'carriergui_lso_events.txt'
+
+    local function readLsoEvents()
+        local path = lfs.writedir() .. LSO_EVENTS_FILE
+        local ok, content = base.pcall(function()
+            local f = io.open(path, 'r')
+            if not f then return nil end
+            local c = f:read('*a')
+            f:close()
+            return c
+        end)
+        if not ok or not content or content == '' then return end
+        local lines = {}
+        for line in content:gmatch('[^\r\n]+') do
+            table.insert(lines, line)
+        end
+        if #lines == 0 then return end
+        -- Take last 3 (most-recent at the bottom of the file).
+        local last3 = { '', '', '' }
+        local idx = 1
+        for i = math.max(1, #lines - 2), #lines do
+            last3[idx] = lines[i] or ''
+            idx = idx + 1
+        end
+        if not carrier.window then return end
+        for i = 1, 3 do
+            local w = carrier.window['lblEvent' .. i]
+            if w then base.pcall(function() w:setText(last3[i]) end) end
         end
     end
 
@@ -638,11 +673,12 @@ local function load()
             carrier.bridgeProbeAt = nil
             base.pcall(probeBridge)
         end
-        -- Read the bridge's ship-state file ~1× per second.
+        -- Read bridge state files (ship state + LSO event log) ~1× per second.
         local now = DCS.getRealTime() or 0
         if (carrier.shipStateReadAt or 0) + 1.0 < now then
             carrier.shipStateReadAt = now
             base.pcall(readShipState)
+            base.pcall(readLsoEvents)
         end
     end
 
@@ -664,7 +700,7 @@ local function load()
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v1.1-beta1)')
+    logInfo('hook loaded (v1.2-beta1)')
 end
 
 local ok, err = pcall(load)

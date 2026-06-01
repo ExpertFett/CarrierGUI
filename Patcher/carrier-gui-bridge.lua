@@ -1,4 +1,4 @@
--- CarrierGUI Mission Bridge  (rebuild v1.1-beta1 — LSO calls + ship state file)
+-- CarrierGUI Mission Bridge  (rebuild v1.2-beta1 — recovery monitor (CASE III milestones))
 -- ============================================================================
 -- Embedded into every patched .miz by Tools/patch_miz.py.
 -- Polls user flags set by the Hook (Ctrl+Shift+c GUI), then pushes the
@@ -313,7 +313,14 @@ local function flagInt(name, default)
     return v
 end
 
+-- Active recovery CASE. Set whenever the LSO broadcasts a case from the
+-- MARSHALL tab. The recovery-monitor below uses this to decide which
+-- milestone set to track. Defaults to III since that's the most common
+-- night/instrument recovery and the only case with clear distance gates.
+_G.__cgCurrentCase = _G.__cgCurrentCase or 'III'
+
 local function broadcastCase(caseNum)
+    _G.__cgCurrentCase = caseNum  -- stored globally so reloads preserve state
     local txt = string.format(
         '=== RECOVERY CASE %s ===\nCarrier recovery is now CASE %s.',
         caseNum, caseNum)
@@ -459,6 +466,164 @@ local function writeShipState(carriers)
 end
 
 -- ============================================================================
+-- RECOVERY MONITOR — watch inbound aircraft for CASE III milestone crossings
+-- ============================================================================
+-- For each carrier each poll, scan coalition aircraft and filter to those
+-- on a CASE III final-bearing approach (behind the boat, within ~15° of the
+-- FB radial, low, closing). When an aircraft crosses a milestone distance
+-- (10/6/3/0.75 nm), append an LSO prompt line to carriergui_lso_events.txt.
+-- The hook reads that file and shows the last few lines in the LSO tab.
+
+local NM_TO_M = 1852.0
+
+-- One row per milestone: distance (nm) → prompt text. Order matters: outer
+-- first, so we check them in sequence as the aircraft closes the boat.
+local CASE_III_MILESTONES = {
+    { nm = 10.0, key = 'platform', prompt = 'PLATFORM — push, descend to 1200 ft, dirty up' },
+    { nm =  6.0, key = '6nm',      prompt = '6 nm — comm check, ICLS/ACLS' },
+    { nm =  3.0, key = '3nm',      prompt = '3 nm tipover — gear/flaps/hook, descend' },
+    { nm =  0.75,key = 'ball',     prompt = 'AT BALL — request fuel state' },
+}
+
+-- Per-aircraft tracking. Key = unit name.
+--   { lastDist, lastSeen, callsign, milestonesFired = {[key]=true} }
+local APPROACH = {}
+
+local function lsoEventsPath()
+    return lfs.writedir() .. 'carriergui_lso_events.txt'
+end
+
+local function appendLsoEvent(line)
+    pcall(function()
+        local now = timer.getAbsTime()
+        local stamp = clockHHMM(now)
+        local f = io.open(lsoEventsPath(), 'a')
+        if f then
+            f:write('[' .. stamp .. '] ' .. line .. '\n')
+            f:close()
+        end
+    end)
+end
+
+-- Rotate the events file when it gets big (keep ~last 30 lines so the hook
+-- can still tail it cheaply). Called occasionally, not every poll.
+local function trimLsoEventsIfBig()
+    local path = lsoEventsPath()
+    local f = io.open(path, 'r')
+    if not f then return end
+    local all = f:read('*a') or ''
+    f:close()
+    -- only trim if file > 4 KB (~80 lines)
+    if #all < 4096 then return end
+    local lines = {}
+    for line in all:gmatch('[^\n]+') do
+        table.insert(lines, line)
+    end
+    local keep = {}
+    local startIdx = math.max(1, #lines - 30 + 1)
+    for i = startIdx, #lines do
+        table.insert(keep, lines[i])
+    end
+    f = io.open(path, 'w')
+    if f then f:write(table.concat(keep, '\n') .. '\n'); f:close() end
+end
+
+-- Angular difference (a − b) normalised to -180..+180.
+local function angDelta(a, b)
+    return (a - b + 540) % 360 - 180
+end
+
+-- Distance (nm) and bearing (deg, 0=N, 90=E) from carrier to unit.
+local function relativePos(carrier, unit)
+    local cp = carrier.unit:getPoint()
+    local up = unit:getPoint()
+    local dx = up.x - cp.x
+    local dz = up.z - cp.z
+    local dy = up.y - cp.y
+    local m  = math.sqrt(dx*dx + dy*dy + dz*dz)
+    local nm = m / NM_TO_M
+    local brg = math.deg(math.atan2(dx, dz))
+    if brg < 0 then brg = brg + 360 end
+    return nm, brg, up.y     -- altitude in m
+end
+
+local function carrierFinalBearing(carrier)
+    local p = carrier.unit:getPosition()
+    local h = math.deg(math.atan2(p.x.x, p.x.z))
+    if h < 0 then h = h + 360 end
+    local params = CLASS_PARAMS[carrier.class] or {deckOffsetDeg = 0}
+    local fb = (h + params.deckOffsetDeg) % 360
+    if fb < 0 then fb = fb + 360 end
+    return fb
+end
+
+-- Determine if a unit is "on approach" behind the carrier.
+local function onApproachCone(carrier, unitBrgFromCarrier, distNm, altM)
+    if distNm > 15.0 or distNm < 0.1 then return false end
+    if altM > 1500 then return false end                -- above ~5000 ft = not approaching
+    local fb = carrierFinalBearing(carrier)
+    -- Aircraft on inbound CASE III is at (FB + 180) from carrier.
+    local approachBrg = (fb + 180) % 360
+    if math.abs(angDelta(unitBrgFromCarrier, approachBrg)) > 18 then return false end
+    return true
+end
+
+local function processApproach(carrier, group, unit)
+    local name = unit:getName()
+    if not name then return end
+    local nm, brg, altM = relativePos(carrier, unit)
+    if not onApproachCone(carrier, brg, nm, altM) then
+        -- Out of cone: reset any prior state so a new approach can fire fresh.
+        APPROACH[name] = nil
+        return
+    end
+    local st = APPROACH[name]
+    if not st then
+        st = { lastDist = nm, milestonesFired = {} }
+        APPROACH[name] = st
+    end
+    -- Only fire when crossing INWARD (closing). Avoids retriggers on jitter.
+    if nm < st.lastDist then
+        local callsign = group:getName() or name
+        for _, m in ipairs(CASE_III_MILESTONES) do
+            if st.lastDist > m.nm and nm <= m.nm and not st.milestonesFired[m.key] then
+                st.milestonesFired[m.key] = true
+                local line = callsign .. ' — ' .. m.prompt
+                appendLsoEvent(line)
+                if env and env.info then env.info('[CarrierGUI LSO] ' .. line) end
+            end
+        end
+    end
+    st.lastDist = nm
+end
+
+local function runRecoveryMonitor(carriers)
+    if (_G.__cgCurrentCase or 'III') ~= 'III' then return end   -- TODO: CASE I/II
+    for _, carrier in ipairs(carriers) do
+        if carrier.class == 'CVN' then
+            for _, side in pairs({coalition.side.BLUE, coalition.side.RED, coalition.side.NEUTRAL}) do
+                local groups = coalition.getGroups(side, Group.Category.AIRPLANE)
+                if groups then
+                    for _, group in pairs(groups) do
+                        if group:isExist() then
+                            local units = group:getUnits() or {}
+                            for _, unit in pairs(units) do
+                                if unit:isExist() and unit:inAir() then
+                                    pcall(processApproach, carrier, group, unit)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Cheap counter so we trim the events file every ~30 polls (~30s).
+local _trimCounter = 0
+
+-- ============================================================================
 -- Flag dispatch table
 -- ============================================================================
 -- For wind: durationMin (nil = stop). For beacons: kind + on/off.
@@ -589,6 +754,15 @@ local function poll()
     -- Update ship state file every poll so the hook can show live readouts.
     pcall(writeShipState, carriers)
 
+    -- Recovery monitor: watch inbound aircraft for CASE III milestones,
+    -- write events to the LSO log file the hook tails.
+    pcall(runRecoveryMonitor, carriers)
+    _trimCounter = (_trimCounter or 0) + 1
+    if _trimCounter >= 30 then
+        _trimCounter = 0
+        pcall(trimLsoEventsIfBig)
+    end
+
     return timer.getTime() + POLL_INTERVAL
 end
 
@@ -597,4 +771,4 @@ end
 -- ============================================================================
 buildBeaconCache()
 timer.scheduleFunction(poll, {}, timer.getTime() + POLL_INTERVAL)
-say('Bridge online (v1.1-beta1) — auto-discovering carriers', 6)
+say('Bridge online (v1.2-beta1) — auto-discovering carriers', 6)

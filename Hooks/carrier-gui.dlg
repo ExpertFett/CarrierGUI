@@ -1,9 +1,9 @@
--- CarrierGUI dialog layout  (v1.1-beta1 — three tabs (expanded LSO): CARRIER + MARSHALL + LSO)
+-- CarrierGUI dialog layout  (v1.2-beta1 — RECOVERY EVENTS section added: CARRIER + MARSHALL + LSO)
 -- Loaded by carrier-gui-hook.lua via DialogLoader.spawnDialogFromFile.
 -- The hook wires each btn* child and toggles tab visibility.
 
 local W = 380       -- window width
-local H = 560       -- window height
+local H = 640       -- window height (extended in v1.2 for the RECOVERY EVENTS section)
 local BTN_W = 72    -- standard button width
 local BTN_H = 26    -- standard button height
 local PAD = 6
@@ -240,7 +240,16 @@ c.lblShipHdr  = lbl("SHIP",   PAD, 455, 240, LabelSkin, 18)
 c.lblShipHdg  = lbl("HDG: --",                PAD,        478, 170, ValueSkin, 20)
 c.lblShipWind = lbl("Wind: --/-- kts",        PAD + 181,  478, 200, ValueSkin, 20)
 
-c.lblNvgState = lbl("Bridge: probing...", PAD, 520, W - PAD*2, CapSkin, 18)
+-- ── RECOVERY EVENTS — LSO prompt log (3 most recent lines) ─────────
+-- Bridge appends to carriergui_lso_events.txt as inbound aircraft cross
+-- CASE III milestones (10 / 6 / 3 / 0.75 nm). Hook tails the file.
+c.lblEventsHdr = lbl("RECOVERY EVENTS", PAD, 515, 240, LabelSkin, 18)
+local EventSkin = mkLabelSkin("0xeaeaeaff", 14)
+c.lblEvent1 = lbl("(waiting for inbound aircraft...)", PAD, 540, W - PAD*2, EventSkin, 18)
+c.lblEvent2 = lbl("",                                    PAD, 562, W - PAD*2, EventSkin, 18)
+c.lblEvent3 = lbl("",                                    PAD, 584, W - PAD*2, EventSkin, 18)
+
+c.lblNvgState = lbl("Bridge: probing...", PAD, 612, W - PAD*2, CapSkin, 18)
 
 -- ============================================================= SHARED STATUS ==
 local StatusSkin = {

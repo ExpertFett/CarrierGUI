@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v1.0-beta4 — text-only LED bar gauge)
+-- CarrierGUI Hook  (rebuild v1.0-beta5 — wheel works on the bar; tighter layout)
 -- ============================================================================
 -- Loads the carrier-gui.dlg dialog and toggles it with Ctrl+Shift+c.
 -- Each button fires a numbered user flag via net.dostring_in("server", ...).
@@ -347,9 +347,9 @@ local function load()
             logInfo('NVG gain -> ' .. pct .. '%')
         end
 
-        -- Mouse wheel on the big % readout: scroll up = +10%, down = -10%.
-        -- The wheel callback's arg signature varies across DCS versions; we
-        -- accept any non-zero numeric and use its sign.
+        -- Mouse wheel: scroll up = +10%, scroll down = -10%. The wheel
+        -- callback's arg signature varies across DCS versions; we accept any
+        -- non-zero numeric and use its sign.
         local function wheelDelta(...)
             local args = {...}
             for i = #args, 1, -1 do
@@ -358,18 +358,33 @@ local function load()
             end
             return 0
         end
-        local valWidget = carrier.window.lblNvgVal
-        if valWidget and valWidget.addMouseWheelCallback then
-            base.pcall(function()
-                valWidget:addMouseWheelCallback(function(self, ...)
-                    local d = wheelDelta(...)
-                    if d > 0 then setNvgGain(carrier.nvgGain + 10)
-                    elseif d < 0 then setNvgGain(carrier.nvgGain - 10) end
-                end)
-            end)
-            logInfo('NVG wheel handler attached')
+        local function onWheel(self, ...)
+            local d = wheelDelta(...)
+            if d > 0 then setNvgGain(carrier.nvgGain + 10)
+            elseif d < 0 then setNvgGain(carrier.nvgGain - 10) end
+        end
+        -- Attach the wheel handler to EVERY visible widget in the bar cluster
+        -- (readout + every LED + tick labels). Previously only the readout
+        -- had it, which was confusing — the user's natural hover target is
+        -- the bar itself, not the % text above it.
+        local wheelTargets = {
+            'lblNvgVal',
+            'ledNvg1','ledNvg2','ledNvg3','ledNvg4','ledNvg5',
+            'ledNvg6','ledNvg7','ledNvg8','ledNvg9','ledNvg10',
+            'lblTick0','lblTick50','lblTick100',
+        }
+        local attached = 0
+        for _, name in base.ipairs(wheelTargets) do
+            local w = carrier.window[name]
+            if w and w.addMouseWheelCallback then
+                base.pcall(function() w:addMouseWheelCallback(onWheel) end)
+                attached = attached + 1
+            end
+        end
+        if attached > 0 then
+            logInfo('NVG wheel handler attached to ' .. attached .. ' widgets')
         else
-            logErr('lblNvgVal missing addMouseWheelCallback — wheel input disabled')
+            logErr('no widgets accepted addMouseWheelCallback — wheel disabled')
         end
 
         -- Click any LED segment to jump to that gain. Segment N (1..10) sets
@@ -458,7 +473,7 @@ local function load()
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v1.0-beta4)')
+    logInfo('hook loaded (v1.0-beta5)')
 end
 
 local ok, err = pcall(load)

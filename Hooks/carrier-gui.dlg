@@ -1,4 +1,4 @@
--- CarrierGUI dialog layout  (v1.0-beta4 — three tabs: CARRIER + MARSHALL + LSO)
+-- CarrierGUI dialog layout  (v1.0-beta5 — three tabs: CARRIER + MARSHALL + LSO)
 -- Loaded by carrier-gui-hook.lua via DialogLoader.spawnDialogFromFile.
 -- The hook wires each btn* child and toggles tab visibility.
 
@@ -178,41 +178,39 @@ c.btnCharlieBroadcast = btn("Broadcast Charlie", PAD, my, 250)
 
 c.lblLsoNvg = lbl("PLAT-CAM NVG GAIN", PAD, 38, 240, LabelSkin, 18)
 
+-- Big readout + bar tightened into one visual cluster (~y=70..200).
+-- Scroll wheel is wired in the hook to BOTH the readout AND every LED
+-- segment AND the tick labels, so scrolling anywhere on the visible
+-- cluster spins the gain.
 local BigSkin = mkLabelSkin("0xffffffff", 48)
-c.lblNvgVal   = lbl("OFF", 110, 78, 160, BigSkin, 60)
+c.lblNvgVal   = lbl("OFF", 110, 70, 160, BigSkin, 60)
 
--- 10 LED segments, 28x40 each, 2px gap = 30 stride, total 298 wide.
+-- 10 LED segments, 28x40 each, 2px gap (30 stride), total 298 wide.
 -- Start at x=41 so the bar is roughly centred in the 380-wide window.
--- Text is "█" (U+2588 full block) via decimal escape (Lua 5.1 supports
--- decimal escapes \ddd; only \xHH hex is missing pre-5.2). If the font
--- fails to render U+2588, segments still show as coloured rectangles
--- because the lit skin renders the SKIN background even with no glyph
--- (worst case: empty cells that change colour). Hook flips LIT/DIM
--- per segment via setSkin.
 local LedFull = mkLabelSkin("0x60ff80ff", 32)
-local BLK = "\226\150\136"
-c.ledNvg1  = lbl(BLK,  41, 170, 28, LedFull, 40)   -- 10%
-c.ledNvg2  = lbl(BLK,  71, 170, 28, LedFull, 40)   -- 20%
-c.ledNvg3  = lbl(BLK, 101, 170, 28, LedFull, 40)   -- 30%
-c.ledNvg4  = lbl(BLK, 131, 170, 28, LedFull, 40)   -- 40%
-c.ledNvg5  = lbl(BLK, 161, 170, 28, LedFull, 40)   -- 50%
-c.ledNvg6  = lbl(BLK, 191, 170, 28, LedFull, 40)   -- 60%
-c.ledNvg7  = lbl(BLK, 221, 170, 28, LedFull, 40)   -- 70%
-c.ledNvg8  = lbl(BLK, 251, 170, 28, LedFull, 40)   -- 80%
-c.ledNvg9  = lbl(BLK, 281, 170, 28, LedFull, 40)   -- 90%
-c.ledNvg10 = lbl(BLK, 311, 170, 28, LedFull, 40)   -- 100%
+local BLK = "\226\150\136"   -- "█" U+2588 via decimal escape (Lua 5.1 ok)
+c.ledNvg1  = lbl(BLK,  41, 140, 28, LedFull, 40)   -- 10%
+c.ledNvg2  = lbl(BLK,  71, 140, 28, LedFull, 40)   -- 20%
+c.ledNvg3  = lbl(BLK, 101, 140, 28, LedFull, 40)   -- 30%
+c.ledNvg4  = lbl(BLK, 131, 140, 28, LedFull, 40)   -- 40%
+c.ledNvg5  = lbl(BLK, 161, 140, 28, LedFull, 40)   -- 50%
+c.ledNvg6  = lbl(BLK, 191, 140, 28, LedFull, 40)   -- 60%
+c.ledNvg7  = lbl(BLK, 221, 140, 28, LedFull, 40)   -- 70%
+c.ledNvg8  = lbl(BLK, 251, 140, 28, LedFull, 40)   -- 80%
+c.ledNvg9  = lbl(BLK, 281, 140, 28, LedFull, 40)   -- 90%
+c.ledNvg10 = lbl(BLK, 311, 140, 28, LedFull, 40)   -- 100%
 
 -- Tick labels under the bar
 local TickSkin = mkLabelSkin("0xa0a0a0ff", 14)
-c.lblTick0   = lbl("0%",     35, 215, 40, TickSkin, 18)
-c.lblTick50  = lbl("50%",   165, 215, 40, TickSkin, 18)
-c.lblTick100 = lbl("100%",  305, 215, 50, TickSkin, 18)
+c.lblTick0   = lbl("0%",     35, 185, 40, TickSkin, 18)
+c.lblTick50  = lbl("50%",   165, 185, 40, TickSkin, 18)
+c.lblTick100 = lbl("100%",  305, 185, 50, TickSkin, 18)
 
-c.lblNvgState = lbl("normal feed", PAD, 250, W - PAD*2, ValueSkin, 22)
+c.lblNvgState = lbl("normal feed", PAD, 220, W - PAD*2, ValueSkin, 22)
 c.lblLsoHelp  = lbl(
-    "Scroll wheel anywhere on the bar to spin gain.\n" ..
+    "Scroll wheel anywhere on the readout or the bar to spin gain.\n" ..
     "Click any LED to jump to that gain.",
-    PAD, 285, W - PAD*2, CapSkin, 40)
+    PAD, 255, W - PAD*2, CapSkin, 40)
 
 -- ============================================================= SHARED STATUS ==
 local StatusSkin = {

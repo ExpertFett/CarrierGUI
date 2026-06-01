@@ -28,7 +28,8 @@ PY_EMBED_URL = 'https://www.python.org/ftp/python/3.12.7/python-3.12.7-embed-amd
 INCLUDE = [
     'Hooks/carrier-gui-hook.lua',
     'Hooks/carrier-gui.dlg',
-    'Hooks/assets/dial-face.png',
+    'Hooks/assets/dial-face.png',   # preview only
+    'Hooks/assets/dial-face.bmp',   # loaded by DCS dxgui
     'Patcher/patch_miz.py',
     'Patcher/carrier-gui-bridge.lua',
     'Patcher/Patch Mission.bat',

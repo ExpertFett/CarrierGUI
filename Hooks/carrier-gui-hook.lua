@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v1.0-beta1 — graphical dial face + pip)
+-- CarrierGUI Hook  (rebuild v1.0-beta2 — BMP not PNG, picture skin alignment)
 -- ============================================================================
 -- Loads the carrier-gui.dlg dialog and toggles it with Ctrl+Shift+c.
 -- Each button fires a numbered user flag via net.dostring_in("server", ...).
@@ -151,19 +151,27 @@ local function load()
     local DOT_SKIN_LIT = makeDotSkin('0x60ff80ff')   -- selected: bright NVG green
     local DOT_SKIN_DIM = makeDotSkin('0x707070ff')   -- unselected: mid grey (readable)
 
-    -- Dial-face image skin. Path is computed at runtime from lfs.writedir()
-    -- since the .dlg's DialogLoader sandbox doesn't reliably resolve image
-    -- paths and we can't bake an absolute path into a generic .dlg.
+    -- Dial-face image skin. v1.0-beta1 set picture.file + .color and silently
+    -- rendered nothing — turns out dxgui's picture skin needs explicit
+    -- horzAlign/vertAlign/resizeToFill to know how to map the image into the
+    -- widget bounds. Structure cribbed from Supercarrier's PLATCameraUI.dlg
+    -- (the same skin format the working PLAT widget uses).
     local function buildDialFaceSkin()
-        local path = lfs.writedir() .. 'Scripts/Hooks/assets/dial-face.png'
+        -- DCS's dxgui picture loader doesn't accept PNG (no stock dialogs
+        -- reference *.png anywhere). It does accept BMP — Supercarrier's
+        -- PLATCameraUI uses BMP. We generate both formats; load the BMP.
+        local path = lfs.writedir() .. 'Scripts/Hooks/assets/dial-face.bmp'
         return {
             params = { name = 'staticSkin' },
             states = {
                 released = {
                     [1] = {
                         picture = {
-                            file  = path,
-                            color = '0xffffffff',  -- white = no tint
+                            color        = '0xffffffff',   -- white = no tint
+                            file         = path,
+                            horzAlign    = { type = 'stretch' },
+                            vertAlign    = { type = 'stretch' },
+                            resizeToFill = false,
                         },
                     },
                 },
@@ -512,7 +520,7 @@ local function load()
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v1.0-beta1)')
+    logInfo('hook loaded (v1.0-beta2)')
 end
 
 local ok, err = pcall(load)

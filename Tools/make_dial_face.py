@@ -170,13 +170,73 @@ def write_png(path: Path, raw: bytes) -> None:
     path.write_bytes(png)
 
 
+def write_bmp(path: Path, raw: bytes) -> None:
+    """
+    Encode raw RGBA scanlines (with PNG-style filter bytes — we strip them)
+    to a 32-bit BGRA BMP with BITMAPV4HEADER. Top-down (negative height).
+    DCS's dxgui picture loader doesn't accept PNG anywhere in stock content;
+    it does accept BMP — that's how Supercarrier's PLATCameraUI works.
+    """
+    # Strip the PNG filter byte from each row, swap RGBA -> BGRA.
+    row_stride = 1 + W * 4              # 1 filter byte + RGBA pixels
+    pixels = bytearray()
+    for y in range(H):
+        row_start = y * row_stride + 1  # skip filter byte
+        for x in range(W):
+            i = row_start + x * 4
+            r, g, b, a = raw[i], raw[i+1], raw[i+2], raw[i+3]
+            pixels.append(b)
+            pixels.append(g)
+            pixels.append(r)
+            pixels.append(a)
+
+    pixel_bytes = bytes(pixels)
+    pixel_offset = 14 + 108              # file header + V4 info header
+    file_size = pixel_offset + len(pixel_bytes)
+
+    file_hdr = struct.pack(
+        '<2sIHHI',
+        b'BM', file_size, 0, 0, pixel_offset,
+    )
+    v4_hdr = struct.pack(
+        '<IiiHHIIiiIIIIIII36sIII',
+        108,                   # bV4Size
+        W,                     # width
+        -H,                    # height (negative = top-down)
+        1,                     # planes
+        32,                    # bit count
+        3,                     # BI_BITFIELDS
+        len(pixel_bytes),      # image size
+        2835,                  # 72 DPI horizontal
+        2835,                  # 72 DPI vertical
+        0,                     # colors used
+        0,                     # important colors
+        0x00FF0000,            # red mask
+        0x0000FF00,            # green mask
+        0x000000FF,            # blue mask
+        0xFF000000,            # alpha mask
+        0,                     # cs type
+        bytes(36),             # endpoints
+        0, 0, 0,               # gamma R/G/B
+    )
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(file_hdr + v4_hdr + pixel_bytes)
+
+
 def main() -> None:
-    out = Path(__file__).resolve().parent.parent / 'Hooks' / 'assets' / 'dial-face.png'
+    out_dir = Path(__file__).resolve().parent.parent / 'Hooks' / 'assets'
+    out_png = out_dir / 'dial-face.png'
+    out_bmp = out_dir / 'dial-face.bmp'
+
     print(f'Rendering {W}x{H} dial face …')
     raw = render()
-    write_png(out, raw)
-    sz = out.stat().st_size
-    print(f'Wrote {out} ({sz} bytes)')
+
+    write_png(out_png, raw)
+    print(f'Wrote {out_png} ({out_png.stat().st_size} bytes)  [preview]')
+
+    write_bmp(out_bmp, raw)
+    print(f'Wrote {out_bmp} ({out_bmp.stat().st_size} bytes)  [used by DCS]')
 
 
 if __name__ == '__main__':

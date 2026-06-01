@@ -486,4 +486,4 @@ end
 -- ============================================================================
 buildBeaconCache()
 timer.scheduleFunction(poll, {}, timer.getTime() + POLL_INTERVAL)
-say('Bridge online (v1.0-beta3) — auto-discovering carriers', 6)
+say('Bridge online (v1.0-beta4) — auto-discovering carriers', 6)

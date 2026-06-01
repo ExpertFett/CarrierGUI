@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v1.0-beta3 — TGA (dxgui only accepts TGA-with-alpha))
+-- CarrierGUI Hook  (rebuild v1.0-beta4 — text-only LED bar gauge)
 -- ============================================================================
 -- Loads the carrier-gui.dlg dialog and toggles it with Ctrl+Shift+c.
 -- Each button fires a numbered user flag via net.dostring_in("server", ...).
@@ -104,35 +104,17 @@ local function load()
         'btnCharlieUp','btnCharlieBroadcast',
     }
     local LSO_WIDGETS = {
-        'lblLsoNvg', 'dialFace',
-        'dotNvg0','dotNvg1','dotNvg2','dotNvg3','dotNvg4','dotNvg5',
-        'dotNvg6','dotNvg7','dotNvg8','dotNvg9','dotNvg10',
-        'dialPip', 'lblNvgVal', 'lblNvgState', 'lblLsoHelp',
+        'lblLsoNvg', 'lblNvgVal',
+        'ledNvg1','ledNvg2','ledNvg3','ledNvg4','ledNvg5',
+        'ledNvg6','ledNvg7','ledNvg8','ledNvg9','ledNvg10',
+        'lblTick0','lblTick50','lblTick100',
+        'lblNvgState', 'lblLsoHelp',
     }
 
-    -- Pre-computed pip positions (top-left corner of the 24x24 pip widget)
-    -- per gain step. Computed for radius 115 from dial centre (190, 220) at
-    -- 11 angles 180° / 162° / ... / 0°. Pre-computed because DialogLoader
-    -- sandbox can't run math.*, and we want the same data here too for
-    -- consistency. Pip is 24x24, offset -12,-12 from arc point.
-    local PIP_POS = {
-        [0]  = {x =  63, y = 208},
-        [1]  = {x =  68, y = 172},
-        [2]  = {x =  84, y = 140},
-        [3]  = {x = 109, y = 113},
-        [4]  = {x = 143, y =  99},
-        [5]  = {x = 178, y =  93},
-        [6]  = {x = 213, y =  99},
-        [7]  = {x = 247, y = 113},
-        [8]  = {x = 272, y = 140},
-        [9]  = {x = 288, y = 172},
-        [10] = {x = 293, y = 208},
-    }
-
-    -- Skins for the gain-dial number labels. setSkin(table) on a Static
-    -- accepts a table in this shape. SEL = the currently-selected gain
-    -- value (bright green). DIM = the other values (visible but quiet).
-    local function makeDotSkin(color)
+    -- Skins for the LED bar segments. setSkin(table) on a Static accepts a
+    -- table in this shape. LIT = bright NVG green, DIM = near-black so the
+    -- unlit cells fade into the panel background.
+    local function makeLedSkin(color)
         return {
             params = { name = 'staticSkin', textWrapping = false },
             states = {
@@ -141,44 +123,15 @@ local function load()
                         text = {
                             color      = color,
                             font       = 'DejaVuLGCSansCondensed-Bold.ttf',
-                            lineHeight = 24,
+                            lineHeight = 32,
                         },
                     },
                 },
             },
         }
     end
-    local DOT_SKIN_LIT = makeDotSkin('0x60ff80ff')   -- selected: bright NVG green
-    local DOT_SKIN_DIM = makeDotSkin('0x707070ff')   -- unselected: mid grey (readable)
-
-    -- Dial-face image skin. v1.0-beta1 set picture.file + .color and silently
-    -- rendered nothing — turns out dxgui's picture skin needs explicit
-    -- horzAlign/vertAlign/resizeToFill to know how to map the image into the
-    -- widget bounds. Structure cribbed from Supercarrier's PLATCameraUI.dlg
-    -- (the same skin format the working PLAT widget uses).
-    local function buildDialFaceSkin()
-        -- DCS's dxgui picture loader accepts TGA with alpha (proven by
-        -- Supercarrier's PLATCameraUI which ships cuePanelAircraft.tga,
-        -- FLOLS.tga, etc.). PNG silently fails. BMP V4 with alpha bitfields
-        -- also silently fails — DCS only takes BMP V3 (no alpha).
-        local path = lfs.writedir() .. 'Scripts/Hooks/assets/dial-face.tga'
-        return {
-            params = { name = 'staticSkin' },
-            states = {
-                released = {
-                    [1] = {
-                        picture = {
-                            color        = '0xffffffff',   -- white = no tint
-                            file         = path,
-                            horzAlign    = { type = 'stretch' },
-                            vertAlign    = { type = 'stretch' },
-                            resizeToFill = false,
-                        },
-                    },
-                },
-            },
-        }
-    end
+    local LED_SKIN_LIT = makeLedSkin('0x60ff80ff')
+    local LED_SKIN_DIM = makeLedSkin('0x202020ff')
 
     -- --------------------------------------------------------- show / hide ---
     -- Gotcha #4: setVisible(false) destroys the dialog. We toggle visibility
@@ -260,21 +213,14 @@ local function load()
             local txt = (g <= 0) and 'OFF' or (tostring(g) .. '%')
             base.pcall(function() carrier.window.lblNvgVal:setText(txt) end)
         end
-        -- 11 numbers as rim labels around the dial. Selected gain = bright,
-        -- others = readable grey. Click any to jump.
-        for i = 0, 10 do
-            local dot = carrier.window['dotNvg' .. i]
-            if dot then
-                local skin = (i * 10 == g) and DOT_SKIN_LIT or DOT_SKIN_DIM
-                base.pcall(function() dot:setSkin(skin) end)
+        -- 10 LED bar segments. Segment N (1..10) lit IFF gain >= N*10.
+        -- gain=0 → no LEDs, gain=100 → all 10 LEDs.
+        for i = 1, 10 do
+            local led = carrier.window['ledNvg' .. i]
+            if led then
+                local skin = (g >= i * 10) and LED_SKIN_LIT or LED_SKIN_DIM
+                base.pcall(function() led:setSkin(skin) end)
             end
-        end
-        -- Move the dial pip to the current gain's tick angle. The 24x24
-        -- pip widget gets repositioned via setBounds.
-        local pip = carrier.window.dialPip
-        local pos = PIP_POS[math.floor(g / 10 + 0.5)]
-        if pip and pos then
-            base.pcall(function() pip:setBounds(pos.x, pos.y, 24, 26) end)
         end
         -- State line
         if carrier.window.lblNvgState then
@@ -388,17 +334,7 @@ local function load()
         wireClick('btnTabMarshall', function() showTab('marshall') end)
         wireClick('btnTabLso',      function() showTab('lso')      end)
 
-        -- LSO tab: apply the dial-face PNG to the background Static. Failure
-        -- here is non-fatal — dial works without the image, just looks worse.
-        if carrier.window.dialFace then
-            local ok, err = base.pcall(function()
-                carrier.window.dialFace:setSkin(buildDialFaceSkin())
-            end)
-            if ok then logInfo('dial face skin applied')
-            else        logErr('dial face skin failed: ' .. tostring(err)) end
-        end
-
-        -- LSO tab: NVG gain dial
+        -- LSO tab: NVG gain bar gauge
         local function setNvgGain(pct)
             if pct < 0   then pct = 0   end
             if pct > 100 then pct = 100 end
@@ -436,11 +372,12 @@ local function load()
             logErr('lblNvgVal missing addMouseWheelCallback — wheel input disabled')
         end
 
-        -- Click any dot to jump directly to that gain (fallback for inputs
-        -- where the scroll wheel isn't mapped, e.g. controllers in VR).
-        for i = 0, 10 do
+        -- Click any LED segment to jump to that gain. Segment N (1..10) sets
+        -- gain to N*10%. To go all the way to 0 you scroll wheel down (or
+        -- click LED 1 then scroll once more — easy enough).
+        for i = 1, 10 do
             local pct = i * 10
-            wireClick('dotNvg' .. i, function() setNvgGain(pct) end)
+            wireClick('ledNvg' .. i, function() setNvgGain(pct) end)
         end
 
         -- Sync the on-disk file with our initial state (0%) so a fresh DCS
@@ -521,7 +458,7 @@ local function load()
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v1.0-beta3)')
+    logInfo('hook loaded (v1.0-beta4)')
 end
 
 local ok, err = pcall(load)

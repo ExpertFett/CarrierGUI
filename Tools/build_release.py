@@ -28,8 +28,9 @@ PY_EMBED_URL = 'https://www.python.org/ftp/python/3.12.7/python-3.12.7-embed-amd
 INCLUDE = [
     'Hooks/carrier-gui-hook.lua',
     'Hooks/carrier-gui.dlg',
-    'Hooks/assets/dial-face.png',   # preview only
-    'Hooks/assets/dial-face.tga',   # loaded by DCS dxgui
+    # Hooks/assets/dial-face.{png,tga} dropped in v1.0-beta4 — dxgui's
+    # picture loader didn't accept any alpha-bearing format we tried, so
+    # the dial is now a text-only LED bar.
     'Patcher/patch_miz.py',
     'Patcher/carrier-gui-bridge.lua',
     'Patcher/Patch Mission.bat',

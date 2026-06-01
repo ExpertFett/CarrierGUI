@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v1.0-beta2 — BMP not PNG, picture skin alignment)
+-- CarrierGUI Hook  (rebuild v1.0-beta3 — TGA (dxgui only accepts TGA-with-alpha))
 -- ============================================================================
 -- Loads the carrier-gui.dlg dialog and toggles it with Ctrl+Shift+c.
 -- Each button fires a numbered user flag via net.dostring_in("server", ...).
@@ -157,10 +157,11 @@ local function load()
     -- widget bounds. Structure cribbed from Supercarrier's PLATCameraUI.dlg
     -- (the same skin format the working PLAT widget uses).
     local function buildDialFaceSkin()
-        -- DCS's dxgui picture loader doesn't accept PNG (no stock dialogs
-        -- reference *.png anywhere). It does accept BMP — Supercarrier's
-        -- PLATCameraUI uses BMP. We generate both formats; load the BMP.
-        local path = lfs.writedir() .. 'Scripts/Hooks/assets/dial-face.bmp'
+        -- DCS's dxgui picture loader accepts TGA with alpha (proven by
+        -- Supercarrier's PLATCameraUI which ships cuePanelAircraft.tga,
+        -- FLOLS.tga, etc.). PNG silently fails. BMP V4 with alpha bitfields
+        -- also silently fails — DCS only takes BMP V3 (no alpha).
+        local path = lfs.writedir() .. 'Scripts/Hooks/assets/dial-face.tga'
         return {
             params = { name = 'staticSkin' },
             states = {
@@ -520,7 +521,7 @@ local function load()
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v1.0-beta2)')
+    logInfo('hook loaded (v1.0-beta3)')
 end
 
 local ok, err = pcall(load)

@@ -170,18 +170,19 @@ def write_png(path: Path, raw: bytes) -> None:
     path.write_bytes(png)
 
 
-def write_bmp(path: Path, raw: bytes) -> None:
+def write_tga(path: Path, raw: bytes) -> None:
     """
-    Encode raw RGBA scanlines (with PNG-style filter bytes — we strip them)
-    to a 32-bit BGRA BMP with BITMAPV4HEADER. Top-down (negative height).
-    DCS's dxgui picture loader doesn't accept PNG anywhere in stock content;
-    it does accept BMP — that's how Supercarrier's PLATCameraUI works.
+    Encode raw RGBA scanlines (with PNG-style filter bytes) to a 32-bit BGRA
+    uncompressed TGA, top-down. DCS's dxgui picture loader accepts TGA with
+    alpha — Supercarrier's PLATCameraUI uses it (cuePanelAircraft.tga,
+    FLOLS.tga, etc). PNG: not accepted. BMP V4 (with alpha bitfields):
+    not accepted either (DCS only takes V3 BITMAPINFOHEADER).
     """
-    # Strip the PNG filter byte from each row, swap RGBA -> BGRA.
-    row_stride = 1 + W * 4              # 1 filter byte + RGBA pixels
+    # Strip PNG filter byte per row, swap RGBA -> BGRA.
+    row_stride = 1 + W * 4
     pixels = bytearray()
     for y in range(H):
-        row_start = y * row_stride + 1  # skip filter byte
+        row_start = y * row_stride + 1   # skip filter byte
         for x in range(W):
             i = row_start + x * 4
             r, g, b, a = raw[i], raw[i+1], raw[i+2], raw[i+3]
@@ -190,44 +191,30 @@ def write_bmp(path: Path, raw: bytes) -> None:
             pixels.append(r)
             pixels.append(a)
 
-    pixel_bytes = bytes(pixels)
-    pixel_offset = 14 + 108              # file header + V4 info header
-    file_size = pixel_offset + len(pixel_bytes)
-
-    file_hdr = struct.pack(
-        '<2sIHHI',
-        b'BM', file_size, 0, 0, pixel_offset,
-    )
-    v4_hdr = struct.pack(
-        '<IiiHHIIiiIIIIIII36sIII',
-        108,                   # bV4Size
-        W,                     # width
-        -H,                    # height (negative = top-down)
-        1,                     # planes
-        32,                    # bit count
-        3,                     # BI_BITFIELDS
-        len(pixel_bytes),      # image size
-        2835,                  # 72 DPI horizontal
-        2835,                  # 72 DPI vertical
-        0,                     # colors used
-        0,                     # important colors
-        0x00FF0000,            # red mask
-        0x0000FF00,            # green mask
-        0x000000FF,            # blue mask
-        0xFF000000,            # alpha mask
-        0,                     # cs type
-        bytes(36),             # endpoints
-        0, 0, 0,               # gamma R/G/B
+    # 18-byte TGA header
+    #   image type = 2 (uncompressed true-color)
+    #   pixel depth = 32 (BGRA)
+    #   image descriptor = 0x28 = 8 alpha bits + bit5 set (top-down origin)
+    header = struct.pack(
+        '<BBBHHBHHHHBB',
+        0,           # ID length
+        0,           # color map type (none)
+        2,           # image type (uncompressed RGB / true-color)
+        0, 0, 0,     # color map spec (origin, length, depth bits)
+        0, 0,        # X-origin, Y-origin
+        W, H,        # width, height
+        32,          # pixel depth
+        0x28,        # image descriptor: 8 alpha bits, top-down
     )
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(file_hdr + v4_hdr + pixel_bytes)
+    path.write_bytes(header + bytes(pixels))
 
 
 def main() -> None:
     out_dir = Path(__file__).resolve().parent.parent / 'Hooks' / 'assets'
     out_png = out_dir / 'dial-face.png'
-    out_bmp = out_dir / 'dial-face.bmp'
+    out_tga = out_dir / 'dial-face.tga'
 
     print(f'Rendering {W}x{H} dial face …')
     raw = render()
@@ -235,8 +222,14 @@ def main() -> None:
     write_png(out_png, raw)
     print(f'Wrote {out_png} ({out_png.stat().st_size} bytes)  [preview]')
 
-    write_bmp(out_bmp, raw)
-    print(f'Wrote {out_bmp} ({out_bmp.stat().st_size} bytes)  [used by DCS]')
+    write_tga(out_tga, raw)
+    print(f'Wrote {out_tga} ({out_tga.stat().st_size} bytes)  [used by DCS]')
+
+    # Tidy up any stale BMP from beta2.
+    bmp = out_dir / 'dial-face.bmp'
+    if bmp.exists():
+        bmp.unlink()
+        print(f'Removed stale {bmp}')
 
 
 if __name__ == '__main__':

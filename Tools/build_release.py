@@ -29,7 +29,7 @@ INCLUDE = [
     'Hooks/carrier-gui-hook.lua',
     'Hooks/carrier-gui.dlg',
     'Hooks/assets/dial-face.png',   # preview only
-    'Hooks/assets/dial-face.bmp',   # loaded by DCS dxgui
+    'Hooks/assets/dial-face.tga',   # loaded by DCS dxgui
     'Patcher/patch_miz.py',
     'Patcher/carrier-gui-bridge.lua',
     'Patcher/Patch Mission.bat',

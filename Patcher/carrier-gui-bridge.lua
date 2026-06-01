@@ -1,4 +1,4 @@
--- CarrierGUI Mission Bridge  (rebuild v0.7 — (no bridge changes))
+-- CarrierGUI Mission Bridge  (rebuild v1.1-beta1 — LSO calls + ship state file)
 -- ============================================================================
 -- Embedded into every patched .miz by Tools/patch_miz.py.
 -- Polls user flags set by the Hook (Ctrl+Shift+c GUI), then pushes the
@@ -378,6 +378,87 @@ local function broadcastCharlie(carriers)
 end
 
 -- ============================================================================
+-- LSO CALLS — pure on-screen broadcasts (no Supercarrier state changes)
+-- ============================================================================
+local function broadcastWaveOff()
+    trigger.action.outText(
+        '!!! WAVE OFF  WAVE OFF  WAVE OFF !!!\nGo around — do not land.', 12)
+    if env and env.info then env.info('[CarrierGUI] WAVE OFF') end
+end
+
+local function broadcastCut()
+    trigger.action.outText('CUT — chop throttle, land NOW.', 10)
+end
+
+local function broadcastBingo()
+    trigger.action.outText(
+        'BINGO — refuel tanker on station. Marshal as fragged.', 12)
+end
+
+local function broadcastRecoveryComplete()
+    trigger.action.outText(
+        'Recovery complete. Carrier returning to base course.', 12)
+end
+
+local function broadcastFoulAnnounce(foul)
+    if foul then
+        trigger.action.outText('FOUL DECK — pattern delay, do not land.', 12)
+    else
+        trigger.action.outText('CLEAR DECK — resume recovery operations.', 10)
+    end
+end
+
+-- ============================================================================
+-- Live ship state — bridge writes a small status file every poll cycle so
+-- the hook can show heading / wind-across-deck on the LSO tab. Plain text
+-- key=value format so the hook can read without parsing.
+-- ============================================================================
+local SHIP_STATE_FILE_NAME = 'carriergui_shipstate.txt'
+
+local function writeShipState(carriers)
+    if #carriers == 0 then return end
+    local c = nil
+    for _, cc in ipairs(carriers) do
+        if cc.class == 'CVN' then c = cc; break end
+    end
+    if not c then c = carriers[1] end
+
+    local p   = c.unit:getPosition()
+    local hdg = math.deg(math.atan2(p.x.x, p.x.z))
+    if hdg < 0 then hdg = hdg + 360 end
+
+    local pos     = c.unit:getPoint()
+    local wind    = atmosphere.getWind(pos)
+    local toBrg   = windBearingTo(wind)
+    local fromBrg = (toBrg + 180) % 360
+    local windMs  = math.sqrt(wind.x * wind.x + wind.z * wind.z)
+    local windKts = windMs / KTS_TO_MS
+    -- Decompose wind into along-deck (head) + cross-deck components,
+    -- relative to ship's heading. + head = headwind (good for recovery).
+    local relDeg  = (fromBrg - hdg + 540) % 360 - 180   -- -180..+180
+    local relRad  = math.rad(relDeg)
+    local headKts = windKts * math.cos(relRad)
+    local crossKts = windKts * math.sin(relRad)
+
+    pcall(function()
+        local path = lfs.writedir() .. SHIP_STATE_FILE_NAME
+        local f = io.open(path, 'w')
+        if f then
+            f:write(string.format(
+                'hdg=%d\nwind_from=%d\nwind_kts=%d\nhead_kts=%d\ncross_kts=%d\nname=%s\nclass=%s\n',
+                math.floor(hdg + 0.5),
+                math.floor(fromBrg + 0.5),
+                math.floor(windKts + 0.5),
+                math.floor(headKts + 0.5),
+                math.floor(crossKts + 0.5),
+                c.unitName or '',
+                c.class or ''))
+            f:close()
+        end
+    end)
+end
+
+-- ============================================================================
 -- Flag dispatch table
 -- ============================================================================
 -- For wind: durationMin (nil = stop). For beacons: kind + on/off.
@@ -478,6 +559,36 @@ local function poll()
         pcall(broadcastCase, 'III')
     end
 
+    -- LSO calls tab flags (broadcasts only; PLAT/wire/zoom/foul state changes
+    -- are handled hook-side via file IPC + patched PLATCameraUI, not here).
+    if trigger.misc.getUserFlag('210') == 1 then
+        trigger.action.setUserFlag('210', false)
+        pcall(broadcastWaveOff)
+    end
+    if trigger.misc.getUserFlag('211') == 1 then
+        trigger.action.setUserFlag('211', false)
+        pcall(broadcastCut)
+    end
+    if trigger.misc.getUserFlag('212') == 1 then
+        trigger.action.setUserFlag('212', false)
+        pcall(broadcastBingo)
+    end
+    if trigger.misc.getUserFlag('213') == 1 then
+        trigger.action.setUserFlag('213', false)
+        pcall(broadcastRecoveryComplete)
+    end
+    if trigger.misc.getUserFlag('214') == 1 then
+        trigger.action.setUserFlag('214', false)
+        pcall(broadcastFoulAnnounce, true)
+    end
+    if trigger.misc.getUserFlag('215') == 1 then
+        trigger.action.setUserFlag('215', false)
+        pcall(broadcastFoulAnnounce, false)
+    end
+
+    -- Update ship state file every poll so the hook can show live readouts.
+    pcall(writeShipState, carriers)
+
     return timer.getTime() + POLL_INTERVAL
 end
 
@@ -486,4 +597,4 @@ end
 -- ============================================================================
 buildBeaconCache()
 timer.scheduleFunction(poll, {}, timer.getTime() + POLL_INTERVAL)
-say('Bridge online (v1.0-beta5) — auto-discovering carriers', 6)
+say('Bridge online (v1.1-beta1) — auto-discovering carriers', 6)

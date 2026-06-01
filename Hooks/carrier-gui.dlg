@@ -1,4 +1,4 @@
--- CarrierGUI dialog layout  (v1.0-beta5 — three tabs: CARRIER + MARSHALL + LSO)
+-- CarrierGUI dialog layout  (v1.1-beta1 — three tabs (expanded LSO): CARRIER + MARSHALL + LSO)
 -- Loaded by carrier-gui-hook.lua via DialogLoader.spawnDialogFromFile.
 -- The hook wires each btn* child and toggles tab visibility.
 
@@ -176,41 +176,71 @@ c.btnCharlieBroadcast = btn("Broadcast Charlie", PAD, my, 250)
 --   y=250   state line
 --   y=280   help
 
-c.lblLsoNvg = lbl("PLAT-CAM NVG GAIN", PAD, 38, 240, LabelSkin, 18)
+-- LSO tab is dense. Sections top→bottom:
+--   PLAT NVG gain bar (existing v1.0-beta5)
+--   WIRE TARGET   — 1/2/3/4 buttons → setDesiredRope
+--   DECK STATUS   — FOUL/CLEAR     → setFoulDeck + broadcast
+--   PLAT ZOOM     — -/+ stepper    → adjustGate (PLAT FOV)
+--   LSO CALLS     — WAVE OFF / CUT / BINGO / RECOVERY broadcasts
+--   SHIP STATUS   — live HDG / wind readout (bridge → file → hook)
 
--- Big readout + bar tightened into one visual cluster (~y=70..200).
--- Scroll wheel is wired in the hook to BOTH the readout AND every LED
--- segment AND the tick labels, so scrolling anywhere on the visible
--- cluster spins the gain.
-local BigSkin = mkLabelSkin("0xffffffff", 48)
-c.lblNvgVal   = lbl("OFF", 110, 70, 160, BigSkin, 60)
+c.lblLsoNvg = lbl("PLAT NVG GAIN", PAD, 36, 240, LabelSkin, 18)
 
--- 10 LED segments, 28x40 each, 2px gap (30 stride), total 298 wide.
--- Start at x=41 so the bar is roughly centred in the 380-wide window.
-local LedFull = mkLabelSkin("0x60ff80ff", 32)
-local BLK = "\226\150\136"   -- "█" U+2588 via decimal escape (Lua 5.1 ok)
-c.ledNvg1  = lbl(BLK,  41, 140, 28, LedFull, 40)   -- 10%
-c.ledNvg2  = lbl(BLK,  71, 140, 28, LedFull, 40)   -- 20%
-c.ledNvg3  = lbl(BLK, 101, 140, 28, LedFull, 40)   -- 30%
-c.ledNvg4  = lbl(BLK, 131, 140, 28, LedFull, 40)   -- 40%
-c.ledNvg5  = lbl(BLK, 161, 140, 28, LedFull, 40)   -- 50%
-c.ledNvg6  = lbl(BLK, 191, 140, 28, LedFull, 40)   -- 60%
-c.ledNvg7  = lbl(BLK, 221, 140, 28, LedFull, 40)   -- 70%
-c.ledNvg8  = lbl(BLK, 251, 140, 28, LedFull, 40)   -- 80%
-c.ledNvg9  = lbl(BLK, 281, 140, 28, LedFull, 40)   -- 90%
-c.ledNvg10 = lbl(BLK, 311, 140, 28, LedFull, 40)   -- 100%
+local BigSkin = mkLabelSkin("0xffffffff", 36)
+c.lblNvgVal   = lbl("OFF", 110, 58, 160, BigSkin, 48)
 
--- Tick labels under the bar
-local TickSkin = mkLabelSkin("0xa0a0a0ff", 14)
-c.lblTick0   = lbl("0%",     35, 185, 40, TickSkin, 18)
-c.lblTick50  = lbl("50%",   165, 185, 40, TickSkin, 18)
-c.lblTick100 = lbl("100%",  305, 185, 50, TickSkin, 18)
+local LedFull = mkLabelSkin("0x60ff80ff", 28)
+local BLK = "\226\150\136"   -- "█" U+2588 via decimal escape
+c.ledNvg1  = lbl(BLK,  41, 112, 28, LedFull, 36)   -- 10%
+c.ledNvg2  = lbl(BLK,  71, 112, 28, LedFull, 36)   -- 20%
+c.ledNvg3  = lbl(BLK, 101, 112, 28, LedFull, 36)   -- 30%
+c.ledNvg4  = lbl(BLK, 131, 112, 28, LedFull, 36)   -- 40%
+c.ledNvg5  = lbl(BLK, 161, 112, 28, LedFull, 36)   -- 50%
+c.ledNvg6  = lbl(BLK, 191, 112, 28, LedFull, 36)   -- 60%
+c.ledNvg7  = lbl(BLK, 221, 112, 28, LedFull, 36)   -- 70%
+c.ledNvg8  = lbl(BLK, 251, 112, 28, LedFull, 36)   -- 80%
+c.ledNvg9  = lbl(BLK, 281, 112, 28, LedFull, 36)   -- 90%
+c.ledNvg10 = lbl(BLK, 311, 112, 28, LedFull, 36)   -- 100%
 
-c.lblNvgState = lbl("normal feed", PAD, 220, W - PAD*2, ValueSkin, 22)
-c.lblLsoHelp  = lbl(
-    "Scroll wheel anywhere on the readout or the bar to spin gain.\n" ..
-    "Click any LED to jump to that gain.",
-    PAD, 255, W - PAD*2, CapSkin, 40)
+local TickSkin = mkLabelSkin("0xa0a0a0ff", 12)
+c.lblTick0   = lbl("0%",     35, 152, 40, TickSkin, 14)
+c.lblTick50  = lbl("50%",   165, 152, 40, TickSkin, 14)
+c.lblTick100 = lbl("100%",  305, 152, 50, TickSkin, 14)
+
+-- ── WIRE TARGET ──────────────────────────────────────────
+c.lblWireHdr = lbl("WIRE TARGET", PAD, 175, 240, LabelSkin, 18)
+c.btnWire1   = btn("1", PAD + (78+6)*0, 198, 78)
+c.btnWire2   = btn("2", PAD + (78+6)*1, 198, 78)
+c.btnWire3   = btn("3", PAD + (78+6)*2, 198, 78)
+c.btnWire4   = btn("4", PAD + (78+6)*3, 198, 78)
+
+-- ── DECK STATUS ──────────────────────────────────────────
+c.lblDeckHdr = lbl("DECK STATUS", PAD, 235, 240, LabelSkin, 18)
+c.btnFoulDeck  = btn("FOUL DECK",  PAD,        258, 175)
+c.btnClearDeck = btn("CLEAR DECK", PAD + 181,  258, 175)
+
+-- ── PLAT ZOOM ────────────────────────────────────────────
+c.lblZoomHdr = lbl("PLAT ZOOM", PAD, 295, 240, LabelSkin, 18)
+local ZoomCap = mkLabelSkin("0xccccccff", 13)
+c.lblZoomCap = lbl("FOV:", PAD, 322, 70, ZoomCap, 18)
+c.btnZoomDown = btn("-", PAD + 76,  318, 40)
+local ZoomVal = mkLabelSkin("0xffffffff", 16)
+c.lblZoomVal  = lbl("WIDE", PAD + 122, 322, 80, ZoomVal, 18)
+c.btnZoomUp   = btn("+", PAD + 210, 318, 40)
+
+-- ── LSO CALLS ────────────────────────────────────────────
+c.lblCallsHdr = lbl("LSO CALLS", PAD, 355, 240, LabelSkin, 18)
+c.btnWaveOff  = btn("WAVE OFF",     PAD,        378, 175)
+c.btnCut      = btn("CUT",          PAD + 181,  378, 175)
+c.btnBingo    = btn("BINGO TANKER", PAD,        414, 175)
+c.btnRecComp  = btn("RECOVERY OK",  PAD + 181,  414, 175)
+
+-- ── SHIP STATUS (live readout from the bridge) ────────────
+c.lblShipHdr  = lbl("SHIP",   PAD, 455, 240, LabelSkin, 18)
+c.lblShipHdg  = lbl("HDG: --",                PAD,        478, 170, ValueSkin, 20)
+c.lblShipWind = lbl("Wind: --/-- kts",        PAD + 181,  478, 200, ValueSkin, 20)
+
+c.lblNvgState = lbl("Bridge: probing...", PAD, 520, W - PAD*2, CapSkin, 18)
 
 -- ============================================================= SHARED STATUS ==
 local StatusSkin = {

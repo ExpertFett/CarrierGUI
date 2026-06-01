@@ -65,11 +65,11 @@ if "%INSTALLED%"=="0" (
     echo two DCS files (gui.fx + PLATCameraUI.lua). UAC will prompt.
     echo This is OPTIONAL — skip if you don't want the NVG feature.
     echo ----------------------------------------------------------------
-    set /p ENABLE_NVG="Enable LSO NVG dial now? [y/N] "
+    set /p ENABLE_NVG="Enable LSO tools (NVG dial + foul/wire/zoom) now? [y/N] "
     if /i "!ENABLE_NVG!"=="y" (
-        powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%LSO\Enable-NvgDial.ps1"
+        powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%LSO\Enable-LsoTools.ps1"
     ) else (
-        echo Skipped. You can run "LSO\Enable-NvgDial.ps1" later to enable it.
+        echo Skipped. You can run "LSO\Enable-LsoTools.ps1" later to enable them.
     )
 )
 echo.

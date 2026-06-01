@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v1.0-beta5 — wheel works on the bar; tighter layout)
+-- CarrierGUI Hook  (rebuild v1.1-beta1 — full LSO tab (WIRE, DECK, ZOOM, CALLS, SHIP))
 -- ============================================================================
 -- Loads the carrier-gui.dlg dialog and toggles it with Ctrl+Shift+c.
 -- Each button fires a numbered user flag via net.dostring_in("server", ...).
@@ -58,6 +58,16 @@ local function load()
         marshalFlights   = 1,     -- stepper: # of flights in the marshal stack
         charlieMin       = 15,    -- stepper: minutes to Charlie / push
         nvgGain          = 0,     -- LSO tab NVG gain, 0..100 (percent)
+        -- v1.1 LSO additions:
+        foulDeck         = false, -- DECK STATUS toggle
+        desiredWire      = 3,     -- WIRE TARGET: 1..4 (3-wire is the standard)
+        platZoom         = 0,     -- PLAT ZOOM index 0..3 → WIDE/MED/TIGHT/TELE
+        shipHdg          = nil,   -- live, from bridge state file
+        shipWindFrom     = nil,
+        shipWindKts      = nil,
+        shipHeadKts      = nil,
+        shipCrossKts     = nil,
+        shipStateReadAt  = nil,   -- last poll time
     }
 
     -- button child name -> flag number (simple fire-and-forget buttons)
@@ -86,6 +96,11 @@ local function load()
         btnCase1          = 202,
         btnCase2          = 203,
         btnCase3          = 204,
+        -- LSO calls (Tier 1 broadcasts only)
+        btnWaveOff        = 210,
+        btnCut            = 211,
+        btnBingo          = 212,
+        btnRecComp        = 213,
     }
 
     -- Which dialog children belong to which tab (for show/hide). The two tab
@@ -108,7 +123,18 @@ local function load()
         'ledNvg1','ledNvg2','ledNvg3','ledNvg4','ledNvg5',
         'ledNvg6','ledNvg7','ledNvg8','ledNvg9','ledNvg10',
         'lblTick0','lblTick50','lblTick100',
-        'lblNvgState', 'lblLsoHelp',
+        -- WIRE TARGET
+        'lblWireHdr', 'btnWire1','btnWire2','btnWire3','btnWire4',
+        -- DECK STATUS
+        'lblDeckHdr', 'btnFoulDeck','btnClearDeck',
+        -- PLAT ZOOM
+        'lblZoomHdr', 'lblZoomCap', 'btnZoomDown','lblZoomVal','btnZoomUp',
+        -- LSO CALLS
+        'lblCallsHdr', 'btnWaveOff','btnCut','btnBingo','btnRecComp',
+        -- SHIP STATUS (live readout)
+        'lblShipHdr', 'lblShipHdg', 'lblShipWind',
+        -- status
+        'lblNvgState',
     }
 
     -- Skins for the LED bar segments. setSkin(table) on a Static accepts a
@@ -214,7 +240,6 @@ local function load()
             base.pcall(function() carrier.window.lblNvgVal:setText(txt) end)
         end
         -- 10 LED bar segments. Segment N (1..10) lit IFF gain >= N*10.
-        -- gain=0 → no LEDs, gain=100 → all 10 LEDs.
         for i = 1, 10 do
             local led = carrier.window['ledNvg' .. i]
             if led then
@@ -222,13 +247,123 @@ local function load()
                 base.pcall(function() led:setSkin(skin) end)
             end
         end
-        -- State line
-        if carrier.window.lblNvgState then
-            local label
-            if g <= 0       then label = 'normal feed'
-            elseif g >= 100 then label = 'full amplification (MAX)'
-            else                 label = 'partial amplification' end
-            base.pcall(function() carrier.window.lblNvgState:setText(label) end)
+        -- lblNvgState is now the shared LSO-tab status line; the bridge-probe
+        -- handler drives it. NVG status is conveyed by the big readout text.
+    end
+
+    -- =====================================================================
+    -- v1.1 LSO additions: DECK / WIRE / ZOOM file IPC + ship status read
+    -- =====================================================================
+
+    -- File names under lfs.writedir(). The patched PLATCameraUI reads these
+    -- each frame and calls the appropriate Supercarrier function (setFoulDeck,
+    -- setDesiredRope, adjustGate). The hook also reads carriergui_shipstate.txt
+    -- (written by the bridge) for the live HDG / wind readouts.
+    local FOUL_FILE       = 'carriergui_foul.txt'
+    local WIRE_FILE       = 'carriergui_wire.txt'
+    local ZOOM_FILE       = 'carriergui_zoom.txt'
+    local SHIPSTATE_FILE  = 'carriergui_shipstate.txt'
+
+    -- PLAT FOV table for the zoom stepper. Index 0..3 → WIDE..TELE.
+    local ZOOM_LEVELS = {
+        [0] = {label = 'WIDE',  fov = 50},
+        [1] = {label = 'MED',   fov = 30},
+        [2] = {label = 'TIGHT', fov = 18},
+        [3] = {label = 'TELE',  fov = 10},
+    }
+
+    local function writeStateFile(name, body)
+        local path = lfs.writedir() .. name
+        local ok, err = base.pcall(function()
+            local f = io.open(path, 'w')
+            if f then f:write(body); f:close() end
+        end)
+        if not ok then logErr(name .. ' write failed: ' .. tostring(err)) end
+    end
+
+    local function writeFoulState()
+        writeStateFile(FOUL_FILE, carrier.foulDeck and '1' or '0')
+    end
+    local function writeWireState()
+        writeStateFile(WIRE_FILE, tostring(carrier.desiredWire))
+    end
+    local function writeZoomState()
+        local lvl = ZOOM_LEVELS[carrier.platZoom] or ZOOM_LEVELS[0]
+        writeStateFile(ZOOM_FILE, tostring(lvl.fov))
+    end
+
+    local function updateLsoDisplay()
+        if not carrier.window then return end
+
+        -- WIRE buttons: highlight the selected one (re-skin)
+        for i = 1, 4 do
+            local b = carrier.window['btnWire' .. i]
+            if b then
+                local skin = (i == carrier.desiredWire) and LED_SKIN_LIT or LED_SKIN_DIM
+                base.pcall(function() b:setSkin(skin) end)
+            end
+        end
+
+        -- DECK buttons: lit = currently-active state
+        if carrier.window.btnFoulDeck then
+            base.pcall(function()
+                carrier.window.btnFoulDeck:setSkin(carrier.foulDeck and LED_SKIN_LIT or LED_SKIN_DIM)
+            end)
+        end
+        if carrier.window.btnClearDeck then
+            base.pcall(function()
+                carrier.window.btnClearDeck:setSkin((not carrier.foulDeck) and LED_SKIN_LIT or LED_SKIN_DIM)
+            end)
+        end
+
+        -- ZOOM value text
+        if carrier.window.lblZoomVal then
+            local lvl = ZOOM_LEVELS[carrier.platZoom] or ZOOM_LEVELS[0]
+            base.pcall(function() carrier.window.lblZoomVal:setText(lvl.label) end)
+        end
+    end
+
+    -- Ship state reader. The bridge writes carriergui_shipstate.txt with
+    -- key=value lines every ~1s. The hook reads it on the same cadence and
+    -- updates the SHIP readout labels.
+    local function parseShipState(text)
+        local s = {}
+        for line in text:gmatch('[^\r\n]+') do
+            local k, v = line:match('^(%w+)=(.+)$')
+            if k then s[k] = v end
+        end
+        return s
+    end
+
+    local function readShipState()
+        local path = lfs.writedir() .. SHIPSTATE_FILE
+        local ok, content = base.pcall(function()
+            local f = io.open(path, 'r')
+            if not f then return nil end
+            local c = f:read('*a')
+            f:close()
+            return c
+        end)
+        if not ok or not content then return end
+        local s = parseShipState(content)
+        carrier.shipHdg       = tonumber(s.hdg)
+        carrier.shipWindFrom  = tonumber(s.wind_from)
+        carrier.shipWindKts   = tonumber(s.wind_kts)
+        carrier.shipHeadKts   = tonumber(s.head_kts)
+        carrier.shipCrossKts  = tonumber(s.cross_kts)
+        if not carrier.window then return end
+        if carrier.window.lblShipHdg then
+            local txt = carrier.shipHdg and ('HDG: ' .. carrier.shipHdg .. '°') or 'HDG: --'
+            base.pcall(function() carrier.window.lblShipHdg:setText(txt) end)
+        end
+        if carrier.window.lblShipWind then
+            local txt = 'Wind: --'
+            if carrier.shipWindFrom and carrier.shipWindKts then
+                txt = string.format('Wind %03d/%d  (%dH/%dX)',
+                    carrier.shipWindFrom, carrier.shipWindKts,
+                    carrier.shipHeadKts or 0, carrier.shipCrossKts or 0)
+            end
+            base.pcall(function() carrier.window.lblShipWind:setText(txt) end)
         end
     end
 
@@ -400,6 +535,56 @@ local function load()
         writeNvgState()
         updateNvgDisplay()
 
+        -- ────────────── v1.1 LSO additions ──────────────
+
+        -- WIRE TARGET (4 buttons)
+        for i = 1, 4 do
+            local idx = i
+            wireClick('btnWire' .. i, function()
+                carrier.desiredWire = idx
+                writeWireState()
+                updateLsoDisplay()
+                logInfo('desired wire -> ' .. idx)
+            end)
+        end
+
+        -- DECK STATUS — flips foulDeck state AND fires a broadcast flag so the
+        -- bridge announces it on all clients.
+        wireClick('btnFoulDeck', function()
+            carrier.foulDeck = true
+            writeFoulState()
+            fireFlag(214)
+            updateLsoDisplay()
+            logInfo('deck -> FOUL')
+        end)
+        wireClick('btnClearDeck', function()
+            carrier.foulDeck = false
+            writeFoulState()
+            fireFlag(215)
+            updateLsoDisplay()
+            logInfo('deck -> CLEAR')
+        end)
+
+        -- PLAT ZOOM stepper (4 levels)
+        wireClick('btnZoomDown', function()
+            carrier.platZoom = math.max(0, carrier.platZoom - 1)
+            writeZoomState()
+            updateLsoDisplay()
+            logInfo('PLAT zoom -> ' .. carrier.platZoom)
+        end)
+        wireClick('btnZoomUp', function()
+            carrier.platZoom = math.min(3, carrier.platZoom + 1)
+            writeZoomState()
+            updateLsoDisplay()
+            logInfo('PLAT zoom -> ' .. carrier.platZoom)
+        end)
+
+        -- Sync all the new LSO state files with our initial state.
+        writeFoulState()
+        writeWireState()
+        writeZoomState()
+        updateLsoDisplay()
+
         -- marshal stack steppers (1..8 flights)
         wireClick('btnFlightsDown', function()
             carrier.marshalFlights = math.max(1, carrier.marshalFlights - 1)
@@ -453,6 +638,12 @@ local function load()
             carrier.bridgeProbeAt = nil
             base.pcall(probeBridge)
         end
+        -- Read the bridge's ship-state file ~1× per second.
+        local now = DCS.getRealTime() or 0
+        if (carrier.shipStateReadAt or 0) + 1.0 < now then
+            carrier.shipStateReadAt = now
+            base.pcall(readShipState)
+        end
     end
 
     function handler.onMissionLoadEnd()
@@ -473,7 +664,7 @@ local function load()
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v1.0-beta5)')
+    logInfo('hook loaded (v1.1-beta1)')
 end
 
 local ok, err = pcall(load)

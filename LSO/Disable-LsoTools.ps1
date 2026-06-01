@@ -1,15 +1,10 @@
 <#
-    Reverts Enable-NvgDial.ps1 by restoring both files from their .platcamnvg.bak:
-      * Bazar\shaders\MissionEditor\gui.fx
-      * Mods\tech\Supercarrier\PLATCameraUI\PLATCameraUI.lua
+    Reverts Enable-LsoTools.ps1 (or the v1.0 Enable-NvgDial.ps1, same .bak
+    files). Restores both gui.fx and PLATCameraUI.lua from their pristine
+    .platcamnvg.bak siblings. Clears shader cache so DCS picks up the
+    restored shader on next launch.
 
-    Leaves the .bak files in place (so re-enabling later is one click).
-    Clears the shader cache so DCS picks up the restored shader.
-
-    After running this:
-      - The PLAT camera goes back to the stock DCS feed (no NVG at all).
-      - The CarrierGUI LSO tab dial will no longer have any effect.
-      - To bring NVG back, run Enable-NvgDial.ps1 again.
+    Leaves the .bak files in place so re-enabling is one click.
 
     Self-elevates (UAC).
 #>
@@ -56,7 +51,7 @@ if ($restored -eq 0) {
         }
     }
     Write-Host ''
-    Write-Host 'Done. NVG is fully disabled. (.bak files left in place for re-enable.)' -ForegroundColor Cyan
-    Write-Host 'NOTE: first DCS launch after this will be slow (rebuilding shader cache).'
+    Write-Host 'Done. CarrierGUI LSO tools fully disabled.' -ForegroundColor Cyan
+    Write-Host 'NOTE: first DCS launch after this will be slow (shader cache rebuild).'
 }
 pause

@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v1.2-beta1 — CASE III recovery monitor + LSO event prompts)
+-- CarrierGUI Hook  (rebuild v1.2-beta2 — RESET CAM button + ZOOM DEFAULT)
 -- ============================================================================
 -- Loads the carrier-gui.dlg dialog and toggles it with Ctrl+Shift+c.
 -- Each button fires a numbered user flag via net.dostring_in("server", ...).
@@ -119,7 +119,7 @@ local function load()
         'btnCharlieUp','btnCharlieBroadcast',
     }
     local LSO_WIDGETS = {
-        'lblLsoNvg', 'lblNvgVal',
+        'lblLsoNvg', 'btnResetCam', 'lblNvgVal',
         'ledNvg1','ledNvg2','ledNvg3','ledNvg4','ledNvg5',
         'ledNvg6','ledNvg7','ledNvg8','ledNvg9','ledNvg10',
         'lblTick0','lblTick50','lblTick100',
@@ -266,12 +266,14 @@ local function load()
     local ZOOM_FILE       = 'carriergui_zoom.txt'
     local SHIPSTATE_FILE  = 'carriergui_shipstate.txt'
 
-    -- PLAT FOV table for the zoom stepper. Index 0..3 → WIDE..TELE.
+    -- PLAT FOV table for the zoom stepper. Index 0 = "DEFAULT" = let DCS's
+    -- own dynamic zoom run (the patched lua skips adjustGate when fov=0).
+    -- Indices 1..3 override with progressively narrower FOVs.
     local ZOOM_LEVELS = {
-        [0] = {label = 'WIDE',  fov = 50},
-        [1] = {label = 'MED',   fov = 30},
-        [2] = {label = 'TIGHT', fov = 18},
-        [3] = {label = 'TELE',  fov = 10},
+        [0] = {label = 'DEFAULT', fov =  0},  -- 0 = no override; DCS controls
+        [1] = {label = 'MED',     fov = 30},
+        [2] = {label = 'TIGHT',   fov = 18},
+        [3] = {label = 'TELE',    fov = 10},
     }
 
     local function writeStateFile(name, body)
@@ -614,6 +616,22 @@ local function load()
             logInfo('PLAT zoom -> ' .. carrier.platZoom)
         end)
 
+        -- RESET CAM — one-click revert to vanilla DCS PLAT.
+        --   NVG  -> 0% (alpha=0 -> shader lerps to raw texture)
+        --   ZOOM -> DEFAULT (fov=0 -> patched lua skips adjustGate,
+        --                    so DCS's own dynamic zoom resumes)
+        -- Foul deck + desired wire are operational settings and DON'T
+        -- get touched here — they're not "cam defaults".
+        wireClick('btnResetCam', function()
+            carrier.nvgGain  = 0
+            carrier.platZoom = 0
+            writeNvgState()
+            writeZoomState()
+            updateNvgDisplay()
+            updateLsoDisplay()
+            logInfo('RESET CAM (NVG 0%, zoom DEFAULT)')
+        end)
+
         -- Sync all the new LSO state files with our initial state.
         writeFoulState()
         writeWireState()
@@ -700,7 +718,7 @@ local function load()
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v1.2-beta1)')
+    logInfo('hook loaded (v1.2-beta2)')
 end
 
 local ok, err = pcall(load)

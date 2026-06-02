@@ -1,4 +1,4 @@
--- CarrierGUI dialog layout  (v1.2-beta1 — RECOVERY EVENTS section added: CARRIER + MARSHALL + LSO)
+-- CarrierGUI dialog layout  (v1.2-beta2 — RESET CAM button: CARRIER + MARSHALL + LSO)
 -- Loaded by carrier-gui-hook.lua via DialogLoader.spawnDialogFromFile.
 -- The hook wires each btn* child and toggles tab visibility.
 
@@ -185,6 +185,10 @@ c.btnCharlieBroadcast = btn("Broadcast Charlie", PAD, my, 250)
 --   SHIP STATUS   — live HDG / wind readout (bridge → file → hook)
 
 c.lblLsoNvg = lbl("PLAT NVG GAIN", PAD, 36, 240, LabelSkin, 18)
+
+-- Panic button: one-click revert to vanilla DCS PLAT cam.
+-- NVG -> 0%, zoom -> DCS default (no override). Foul/wire untouched.
+c.btnResetCam = btn("RESET CAM", W - PAD - 110, 36, 110)
 
 local BigSkin = mkLabelSkin("0xffffffff", 36)
 c.lblNvgVal   = lbl("OFF", 110, 58, 160, BigSkin, 48)

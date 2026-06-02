@@ -1,14 +1,23 @@
 ================================================================
- CarrierGUI v1.2-beta1
+ CarrierGUI v1.2-beta2   ***  BETA — TEST BUILD  ***
  In-DCS Supercarrier control & LSO panel — VR-friendly
 ================================================================
 
+  ⚠ THIS IS A BETA. Expect rough edges. Report issues back to whoever
+    gave you the zip — please include the date/time and a one-line
+    description, plus any errors from
+       %USERPROFILE%\Saved Games\DCS\Logs\dcs.log
+    (search for "CarrierGUI").
+
+  ⚠ Modifies a core DCS shader → fails MP integrity check.
+    SINGLE-PLAYER OR IC-DISABLED SERVERS ONLY. Fully reversible.
+
+  ⚠ Stable fallback: v0.9 (NVG bar only, no LSO panel-driving features).
+    If a v1.2 feature breaks badly, Uninstall.bat + grab v0.9 from
+    https://github.com/ExpertFett/CarrierGUI/releases/tag/v0.9
+
 In-game GUI for AI carrier ops. Toggles with Ctrl+Shift+c and draws
 inside DCS so it works in VR.
-
-This is a TESTING BUILD. Stable known-good fallback is v0.9 — if a v1.2
-feature breaks, you can revert to that by running Uninstall.bat and
-grabbing the v0.9 release.
 
 ----------------------------------------------------------------
  WHAT'S IN HERE
@@ -29,10 +38,14 @@ grabbing the v0.9 release.
   LSO tab
     PLAT NVG GAIN        10-segment LED bar (scroll wheel or click)
                          drives a PLAT-cam night-vision shader
+    RESET CAM            One-click revert to vanilla DCS PLAT cam
+                         (NVG → 0%, zoom → DEFAULT, no override)
+                         — use this when daylight PLAT washes out
     WIRE TARGET          1 / 2 / 3 / 4 buttons → setDesiredRope
     DECK STATUS          Foul / Clear toggle (drives setFoulDeck +
                          broadcasts the announcement)
-    PLAT ZOOM            WIDE / MED / TIGHT / TELE → adjustGate
+    PLAT ZOOM            DEFAULT / MED / TIGHT / TELE → adjustGate
+                         (DEFAULT = leave DCS's dynamic zoom alone)
     LSO CALLS            WAVE OFF / CUT / BINGO / RECOVERY OK
                          (broadcasts only)
     SHIP STATUS          Live carrier HDG + wind across deck
@@ -177,7 +190,7 @@ First DCS launch after LSO\Enable-LsoTools.ps1 is very slow:
  VERSION / SUPPORT
 ----------------------------------------------------------------
 
-CarrierGUI v1.2-beta1 — personal project, free to share within
+CarrierGUI v1.2-beta2 — personal project, free to share within
 DCS squadrons. Not affiliated with Eagle Dynamics or Supercarrier.
 
 Stable fallback: v0.9 release (NVG bar only, no LSO tools).

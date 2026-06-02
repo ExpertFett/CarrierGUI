@@ -134,14 +134,25 @@ $luaInject = @'
       end
     end)
   end
-  -- NVG dial colour application: every frame to defeat .dlg re-stomp
+  -- NVG dial colour application: every frame to defeat .dlg re-stomp.
+  -- At gain 0 we MUST use white (0xffffffff) and not the sentinel-with-
+  -- alpha-0 (0x00ffc000). The alpha-0 form makes dxgui cull the widget
+  -- before the shader even runs (alpha 0 = "fully transparent skip"),
+  -- which black-holes the PLAT cam. White bypasses the shader gate
+  -- entirely so DCS draws the raw camera feed.
   if _G.__cgNvgSeen then
     pcall(function()
       local w = LSOStation_ and LSOStation_.PLATCamera
       if not w then return end
       local pct = _G.__cgNvgPct or 0
-      local alpha = math.floor(pct * 2.55 + 0.5)
-      local target = string.format('0x00ffc0%02x', alpha)
+      local target
+      if pct <= 0 then
+        target = '0xffffffff'    -- normal feed: gate misses, shader returns diffuse
+      else
+        local alpha = math.floor(pct * 2.55 + 0.5)
+        if alpha < 1 then alpha = 1 end
+        target = string.format('0x00ffc0%02x', alpha)
+      end
       local sk = w:getSkin()
       local st = sk and sk.skinData and sk.skinData.states and sk.skinData.states.released
       local p = st and st[1] and st[1].picture

@@ -17,10 +17,28 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administra
     exit
 }
 
-$candidates = @(
-    'C:\Program Files\Eagle Dynamics\DCS World',
-    'C:\Program Files\Eagle Dynamics\DCS World OpenBeta'
+# Same wide search as Enable — looks on every common drive + Steam Library.
+$drives   = 'C','D','E','F','G','H'
+$suffixes = @(
+    'Program Files\Eagle Dynamics\DCS World',
+    'Program Files\Eagle Dynamics\DCS World OpenBeta',
+    'Program Files (x86)\Eagle Dynamics\DCS World',
+    'Program Files (x86)\Eagle Dynamics\DCS World OpenBeta',
+    'SteamLibrary\steamapps\common\DCSWorld',
+    'Games\DCS World',
+    'Games\Eagle Dynamics\DCS World',
+    'DCS World',
+    'Eagle Dynamics\DCS World'
 )
+$candidates = @()
+foreach ($d in $drives) {
+    foreach ($s in $suffixes) {
+        $p = "${d}:\$s"
+        if (Test-Path (Join-Path $p 'Bazar\shaders\MissionEditor\gui.fx')) {
+            $candidates += $p
+        }
+    }
+}
 
 $restored = 0
 foreach ($dcs in $candidates) {

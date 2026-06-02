@@ -30,18 +30,64 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administra
 
 $ErrorActionPreference = 'Stop'
 
+# ---------------------------------------------------- transcript log ----------
+# Always write a log file next to this script so silent failures / fast-closing
+# windows aren't a problem. Best-effort; if PowerShell can't transcript (e.g.,
+# locked, AV, weird policy) we proceed anyway.
+$logPath = Join-Path $PSScriptRoot 'LsoTools-install-log.txt'
+try { Start-Transcript -Path $logPath -Force | Out-Null } catch {}
+
+Write-Host '=== CarrierGUI LSO tools installer ===' -ForegroundColor Cyan
+Write-Host "Started: $(Get-Date)"
+Write-Host "Script:  $PSCommandPath"
+Write-Host "Log:     $logPath"
+Write-Host ''
+
 # ---------------------------------------------------------------- locate DCS --
-$candidates = @(
-    'C:\Program Files\Eagle Dynamics\DCS World',
-    'C:\Program Files\Eagle Dynamics\DCS World OpenBeta'
+# Search every drive letter for an Eagle Dynamics install in BOTH
+# Program Files and Program Files (x86). Plus a couple of Steam library
+# fallbacks. The first candidate that has Bazar\shaders\MissionEditor\gui.fx
+# wins. Logs every candidate checked so it's obvious where DCS was found
+# (or every place we looked if not).
+$drives   = 'C','D','E','F','G','H'
+$suffixes = @(
+    'Program Files\Eagle Dynamics\DCS World',
+    'Program Files\Eagle Dynamics\DCS World OpenBeta',
+    'Program Files (x86)\Eagle Dynamics\DCS World',
+    'Program Files (x86)\Eagle Dynamics\DCS World OpenBeta',
+    'SteamLibrary\steamapps\common\DCSWorld',
+    'Games\DCS World',
+    'Games\Eagle Dynamics\DCS World',
+    'DCS World',
+    'Eagle Dynamics\DCS World'
 )
-$dcs = $candidates | Where-Object {
-    Test-Path (Join-Path $_ 'Bazar\shaders\MissionEditor\gui.fx')
-} | Select-Object -First 1
-if (-not $dcs) {
-    Write-Host 'ERROR: DCS World install not found.' -ForegroundColor Red
+Write-Host 'Searching for DCS install...'
+$candidates = @()
+foreach ($d in $drives) {
+    foreach ($s in $suffixes) {
+        $p = "${d}:\$s"
+        if (Test-Path (Join-Path $p 'Bazar\shaders\MissionEditor\gui.fx')) {
+            Write-Host "  FOUND: $p" -ForegroundColor Green
+            $candidates += $p
+        }
+    }
+}
+if (-not $candidates) {
+    Write-Host ''
+    Write-Host 'ERROR: No DCS install found.' -ForegroundColor Red
+    Write-Host 'Checked these patterns on drives C-H:' -ForegroundColor Yellow
+    foreach ($s in $suffixes) { Write-Host "  <drive>:\$s" }
+    Write-Host ''
+    Write-Host 'If your DCS is somewhere else, edit Enable-LsoTools.ps1 and add' -ForegroundColor Yellow
+    Write-Host 'your install path to the $suffixes list near the top, then re-run.' -ForegroundColor Yellow
+    Write-Host ''
+    Write-Host '=== FAILED ===' -ForegroundColor Red
+    try { Stop-Transcript | Out-Null } catch {}
+    Write-Host "Log saved to: $logPath"
     pause; exit 1
 }
+$dcs = $candidates[0]
+Write-Host "Using: $dcs" -ForegroundColor Cyan
 
 $fx     = Join-Path $dcs 'Bazar\shaders\MissionEditor\gui.fx'
 $fxBak  = "$fx.platcamnvg.bak"
@@ -181,7 +227,9 @@ foreach ($c in @('metashaders2','fxo','fxo2')) {
 }
 
 Write-Host ''
-Write-Host 'Done.' -ForegroundColor Green
+Write-Host '====================================================' -ForegroundColor Green
+Write-Host '  CarrierGUI LSO tools installed successfully.' -ForegroundColor Green
+Write-Host '====================================================' -ForegroundColor Green
 Write-Host ''
 Write-Host 'NEXT:' -ForegroundColor Cyan
 Write-Host '  1. Launch DCS. First launch will be slow (rebuilding shaders).'
@@ -190,4 +238,8 @@ Write-Host '  3. Ctrl+Shift+c, LSO tab. Try the NVG dial, Wire, Foul Deck,'
 Write-Host '     and PLAT Zoom controls. See LSO calls broadcast on screen.'
 Write-Host ''
 Write-Host 'Undo: Disable-LsoTools.ps1'
+Write-Host ''
+try { Stop-Transcript | Out-Null } catch {}
+Write-Host "Log saved: $logPath" -ForegroundColor Cyan
+Write-Host '   ^ If anything went wrong, send that file to the project owner.'
 pause

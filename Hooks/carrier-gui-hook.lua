@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v1.2-beta3 — patcher bulletproofing (Mark-of-the-Web + self-validate + log))
+-- CarrierGUI Hook  (rebuild v1.2-beta4 — Enable-LsoTools searches all drives + writes a log)
 -- ============================================================================
 -- Loads the carrier-gui.dlg dialog and toggles it with Ctrl+Shift+c.
 -- Each button fires a numbered user flag via net.dostring_in("server", ...).
@@ -718,7 +718,7 @@ local function load()
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v1.2-beta3)')
+    logInfo('hook loaded (v1.2-beta4)')
 end
 
 local ok, err = pcall(load)

@@ -1,5 +1,5 @@
 ================================================================
- CarrierGUI v1.2-beta3   ***  BETA — TEST BUILD  ***
+ CarrierGUI v1.2-beta4   ***  BETA — TEST BUILD  ***
  In-DCS Supercarrier control & LSO panel — VR-friendly
 ================================================================
 
@@ -190,7 +190,7 @@ First DCS launch after LSO\Enable-LsoTools.ps1 is very slow:
  VERSION / SUPPORT
 ----------------------------------------------------------------
 
-CarrierGUI v1.2-beta3 — personal project, free to share within
+CarrierGUI v1.2-beta4 — personal project, free to share within
 DCS squadrons. Not affiliated with Eagle Dynamics or Supercarrier.
 
 Stable fallback: v0.9 release (NVG bar only, no LSO tools).

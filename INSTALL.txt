@@ -1,5 +1,5 @@
 ================================================================
- CarrierGUI v1.2-beta4   ***  BETA — TEST BUILD  ***
+ CarrierGUI v1.2-beta5   ***  BETA — TEST BUILD  ***
  In-DCS Supercarrier control & LSO panel — VR-friendly
 ================================================================
 
@@ -55,23 +55,34 @@ inside DCS so it works in VR.
                          (not broadcast)
 
 ----------------------------------------------------------------
- INSTALL — PILOTS
+ INSTALL — PILOTS  (EASIEST: use the .exe installer)
 ----------------------------------------------------------------
 
-  1. Extract the whole zip somewhere. Keep the folder together.
-  2. Double-click  Install.bat
-  3. Install.bat will offer to run LSO\Enable-LsoTools.ps1 — this
-     patches Supercarrier's PLAT camera so the NVG bar + WIRE +
-     DECK + ZOOM controls actually drive in-game state. SAY YES if
-     you want those features. (Click NO to skip; the GUI still
-     loads with broadcast-only features.)
-     NOTE: this patches a core DCS shader → fails MP integrity
-     check. Single-player / IC-disabled servers only.
-  4. Restart DCS if it was running.
-  5. Start any Supercarrier mission and press Ctrl+Shift+c.
+  1. Close DCS World if it's running.
+  2. Run  CarrierGUI-Setup-v1.2-beta5.exe
+  3. Wizard walks you through it. Keep defaults unless you know
+     better. Next → Next → Install → Finish.
+  4. Last wizard page has a checkbox:
+        [x]  Apply LSO tools patch right now (recommended).
+     Leave it checked unless you specifically want broadcast-only
+     (no PLAT NVG amplification, no foul-deck / wire / zoom).
+     That step will UAC-prompt — it needs admin to write into
+     DCS's Program Files folder.
+     NOTE: the LSO Tools patch modifies a core DCS shader →
+     fails multiplayer integrity check. Single-player /
+     IC-disabled servers only.
+  5. Launch DCS, start any Supercarrier mission, Ctrl+Shift+c.
 
-Install.bat copies into every DCS Saved Games folder it finds
-(DCS, DCS.openbeta).
+The installer drops the patcher + LSO scripts under
+%LOCALAPPDATA%\Programs\CarrierGUI by default, and the hook +
+.dlg under your DCS Saved Games\Scripts\Hooks. Uninstall any
+time via Apps & Features → CarrierGUI.
+
+ALTERNATIVE — zip distribution (for users who'd rather extract
+manually):
+  - Extract CarrierGUI-v1.2-beta5.zip somewhere.
+  - Run Install.bat inside the extracted folder.
+  - Same end result as the .exe installer.
 
 ----------------------------------------------------------------
  PATCH MISSIONS — MISSION DESIGNER (one per squadron, usually)
@@ -190,7 +201,7 @@ First DCS launch after LSO\Enable-LsoTools.ps1 is very slow:
  VERSION / SUPPORT
 ----------------------------------------------------------------
 
-CarrierGUI v1.2-beta4 — personal project, free to share within
+CarrierGUI v1.2-beta5 — personal project, free to share within
 DCS squadrons. Not affiliated with Eagle Dynamics or Supercarrier.
 
 Stable fallback: v0.9 release (NVG bar only, no LSO tools).

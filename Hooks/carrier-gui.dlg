@@ -1,4 +1,4 @@
--- CarrierGUI dialog layout  (v1.2-beta4 — same UI as beta3: CARRIER + MARSHALL + LSO)
+-- CarrierGUI dialog layout  (v1.2-beta5 — same UI as beta4: CARRIER + MARSHALL + LSO)
 -- Loaded by carrier-gui-hook.lua via DialogLoader.spawnDialogFromFile.
 -- The hook wires each btn* child and toggles tab visibility.
 

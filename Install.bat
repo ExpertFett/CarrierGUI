@@ -24,6 +24,14 @@ if not exist "%SRC%\carrier-gui-hook.lua" (
     exit /b 1
 )
 
+REM Strip Mark-of-the-Web from every file extracted from the downloaded zip.
+REM Windows tags everything with a Zone.Identifier when extracted; SmartScreen
+REM can then silently refuse to launch bundled .exe / .ps1 / .bat files, which
+REM makes the patcher and Enable-LsoTools script look like they did nothing.
+REM Doing this once at install time prevents that for every later run.
+echo Unblocking files (clearing Mark-of-the-Web)...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-ChildItem -Path '%SCRIPT_DIR%' -Recurse -File | Unblock-File -ErrorAction SilentlyContinue" >nul 2>&1
+
 for %%R in (%ROOTS%) do (
     set "TARGET=%USERPROFILE%\Saved Games\%%R\Scripts\Hooks"
     if exist "%USERPROFILE%\Saved Games\%%R" (

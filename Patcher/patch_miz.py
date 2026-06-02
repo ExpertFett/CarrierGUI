@@ -24,11 +24,13 @@ FLAG MAPPING (must match hook + bridge):
   100..106 = Wind (handled by bridge)
 """
 import argparse
+import datetime
 import os
 import re
 import shutil
 import sys
 import tempfile
+import traceback
 import zipfile
 from pathlib import Path
 
@@ -339,45 +341,127 @@ def patch_mission_lua(mission_src: str) -> str:
 # ---------------------------------------------------------------------------
 # .miz zip plumbing
 # ---------------------------------------------------------------------------
-def patch_miz(miz_path: Path) -> None:
-    if not miz_path.exists():
-        raise FileNotFoundError(miz_path)
-    if not BRIDGE_PATH.exists():
-        raise FileNotFoundError(f'Bridge file missing: {BRIDGE_PATH}')
-
-    backup = miz_path.with_suffix(miz_path.suffix + '.bak')
-    if not backup.exists():
-        shutil.copy2(miz_path, backup)
-        print(f'  backup -> {backup.name}')
-    else:
-        print(f'  backup already present ({backup.name}) — not overwriting')
-
-    tmpdir = Path(tempfile.mkdtemp(prefix='carriergui_'))
+def _open_patchlog(miz_path: Path):
+    """
+    Open a sibling text log file next to the .miz so silent failures stop
+    being silent. We dump everything we know to it as we go. The .bat
+    pauses on exit, but if a tester closes the window before reading,
+    the log still has the info.
+    """
+    log_path = miz_path.with_name(miz_path.stem + '-patchlog.txt')
     try:
-        with zipfile.ZipFile(miz_path, 'r') as zin:
-            zin.extractall(tmpdir)
+        f = open(log_path, 'w', encoding='utf-8')
+        f.write(f'CarrierGUI patcher log\n')
+        f.write(f'  when:   {datetime.datetime.now().isoformat()}\n')
+        f.write(f'  miz:    {miz_path.resolve()}\n')
+        try:
+            f.write(f'  size:   {miz_path.stat().st_size} bytes\n')
+        except OSError as e:
+            f.write(f'  size:   <stat failed: {e}>\n')
+        f.write(f'  bridge: {BRIDGE_PATH}\n')
+        f.write(f'  bridge exists: {BRIDGE_PATH.exists()}\n')
+        f.write(f'  python: {sys.version}\n')
+        f.write(f'  cwd:    {os.getcwd()}\n')
+        f.write('\n')
+        return f, log_path
+    except OSError:
+        # If we can't write next to the .miz (read-only / OneDrive locked /
+        # whatever), fall back to silent log so the patch can still proceed.
+        return None, None
 
-        mission_file = tmpdir / 'mission'
-        if not mission_file.exists():
-            raise RuntimeError(f'No `mission` file inside {miz_path}')
-        # Read as bytes to preserve original line endings (DCS missions
-        # use LF; text-mode I/O on Windows would translate to CRLF).
-        src = mission_file.read_bytes().decode('utf-8')
-        new_src = patch_mission_lua(src)
-        mission_file.write_bytes(new_src.encode('utf-8'))
 
-        # Rewrite zip
-        tmp_out = miz_path.with_suffix('.miz.tmp')
-        with zipfile.ZipFile(tmp_out, 'w', zipfile.ZIP_DEFLATED) as zout:
-            for root, _dirs, files in os.walk(tmpdir):
-                for f in files:
-                    full = Path(root) / f
-                    rel  = full.relative_to(tmpdir)
-                    zout.write(full, str(rel).replace('\\', '/'))
-        os.replace(tmp_out, miz_path)
-        print(f'  patched: {miz_path.name}')
-    finally:
-        shutil.rmtree(tmpdir, ignore_errors=True)
+def _verify_patch(miz_path: Path) -> int:
+    """Re-open the patched .miz, count markers, return count."""
+    try:
+        with zipfile.ZipFile(miz_path) as z:
+            data = z.read('mission')
+        return data.count(MARKER.encode('utf-8'))
+    except Exception:
+        return -1
+
+
+def patch_miz(miz_path: Path) -> None:
+    log, log_path = _open_patchlog(miz_path)
+    def L(msg=''):
+        print(msg)
+        if log:
+            log.write(msg + '\n')
+            log.flush()
+
+    try:
+        if not miz_path.exists():
+            raise FileNotFoundError(miz_path)
+        if not BRIDGE_PATH.exists():
+            raise FileNotFoundError(
+                f'Bridge file missing: {BRIDGE_PATH}. '
+                'Patcher\\carrier-gui-bridge.lua must sit next to patch_miz.py.')
+
+        L(f'  input:  {miz_path.resolve()}')
+        L(f'  size:   {miz_path.stat().st_size} bytes')
+
+        backup = miz_path.with_suffix(miz_path.suffix + '.bak')
+        if not backup.exists():
+            shutil.copy2(miz_path, backup)
+            L(f'  backup -> {backup.name}')
+        else:
+            L(f'  backup already present ({backup.name}) — not overwriting')
+
+        tmpdir = Path(tempfile.mkdtemp(prefix='carriergui_'))
+        try:
+            with zipfile.ZipFile(miz_path, 'r') as zin:
+                zin.extractall(tmpdir)
+
+            mission_file = tmpdir / 'mission'
+            if not mission_file.exists():
+                # Some unusual .miz tools may name the mission file
+                # differently or nest it; surface what's in there.
+                found = [str(p.relative_to(tmpdir)) for p in tmpdir.rglob('*') if p.is_file()]
+                raise RuntimeError(
+                    f"No `mission` file inside this .miz. Contents were: "
+                    f"{', '.join(found) if found else '(empty)'}")
+            L(f'  mission size before: {mission_file.stat().st_size} bytes')
+
+            src = mission_file.read_bytes().decode('utf-8')
+            new_src = patch_mission_lua(src)
+            mission_file.write_bytes(new_src.encode('utf-8'))
+            L(f'  mission size after:  {mission_file.stat().st_size} bytes')
+
+            tmp_out = miz_path.with_suffix('.miz.tmp')
+            with zipfile.ZipFile(tmp_out, 'w', zipfile.ZIP_DEFLATED) as zout:
+                for root, _dirs, files in os.walk(tmpdir):
+                    for f in files:
+                        full = Path(root) / f
+                        rel  = full.relative_to(tmpdir)
+                        zout.write(full, str(rel).replace('\\', '/'))
+            os.replace(tmp_out, miz_path)
+            L(f'  rewrote {miz_path.name} ({miz_path.stat().st_size} bytes)')
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+        # Self-validate: re-open the .miz and verify our markers landed.
+        n = _verify_patch(miz_path)
+        L(f'  verify: {n} CarrierGUI markers in patched mission (expected 12)')
+        if n < 12:
+            L('  !! VERIFY FAILED — patch did not take. Restoring from backup.')
+            shutil.copy2(backup, miz_path)
+            L(f'  restored {miz_path.name} from {backup.name}')
+            raise RuntimeError(
+                f'Post-patch verify expected 12 markers, found {n}. '
+                'Backup restored; .miz is back to its original state.')
+        print(f'  patched: {miz_path.name}  (verified OK)')
+        if log:
+            log.write(f'\nRESULT: SUCCESS\n')
+            log.close()
+            print(f'  log:    {log_path.name}')
+    except Exception:
+        # Make sure the exception's traceback ends up in the log file.
+        if log:
+            log.write('\nTRACEBACK:\n')
+            log.write(traceback.format_exc())
+            log.write('\nRESULT: FAILED\n')
+            log.close()
+            print(f'  log written to: {log_path.name}')
+        raise
 
 
 def revert_miz(miz_path: Path) -> None:

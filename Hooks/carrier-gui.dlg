@@ -1,4 +1,4 @@
--- CarrierGUI dialog layout  (v1.3-beta9 — 5-tab skeleton)
+-- CarrierGUI dialog layout  (v1.3-beta10 — 5-tab skeleton)
 -- Loaded by carrier-gui-hook.lua via DialogLoader.spawnDialogFromFile.
 -- The hook wires each btn* child and toggles tab visibility.
 --
@@ -41,7 +41,7 @@ local LabelSkin  = mkLabelSkin("0xfbb941ff", 14)   -- section headers (amber)
 local ValueSkin  = mkLabelSkin("0xffffffff", 16)   -- stepper values (white)
 local CapSkin    = mkLabelSkin("0xccccccff", 13)   -- captions (grey)
 
--- v1.3-beta9: ALL non-base skins declared up front so every tab section can
+-- v1.3-beta10: ALL non-base skins declared up front so every tab section can
 -- reference them (latent forward-ref bug in beta5 made TOWER rows fall back
 -- to LabelSkin silently — that's why the panel "looked like the old version").
 local SubSkin     = mkLabelSkin("0xccccccff", 16)
@@ -66,7 +66,7 @@ local CarrierMark = mkLabelSkin("0xff8040ff", 18)   -- carrier centre dot (amber
 local SpotSkin    = mkLabelSkin("0xffff00ff", 14)   -- modex labels (bright yellow)
 local RadarLbl    = mkLabelSkin("0xb8c8d8ff", 12)   -- range/alt scale ticks
 
--- v1.3-beta9 Z-ORDER SCHEME (zindex):
+-- v1.3-beta10 Z-ORDER SCHEME (zindex):
 --   0 = whole-panel dark backdrop
 --   1 = scope/deck base fills
 --   2 = secondary fills (angled deck strip, island, elevators)
@@ -103,7 +103,7 @@ local function lbl(text, x, y, w, skin, h)
 end
 
 -- ---------------------------------------------------------------------------
--- v1.3-beta9 DRAWING PRIMITIVES — copied from the stock Supercarrier dialogs
+-- v1.3-beta10 DRAWING PRIMITIVES — copied from the stock Supercarrier dialogs
 -- (FLOLS.dlg): a skin state can carry a ["bkg"] block of nine cell colours,
 -- which renders the widget as a SOLID FILLED RECTANGLE — no image file, no
 -- font involved.  Combined with params ["angle"] + ["pivotPoint"] (also used
@@ -193,7 +193,7 @@ local c = dialog.children
 c.bgPanel = solidW(2, 32, W - 4, H - 36, PANEL_BG_SKIN, 0)
 
 -- ---------------------------------------------------------------- TAB BAR ---
--- v1.3-beta9: 5 tabs across the top in a wider (540 px) window.
+-- v1.3-beta10: 5 tabs across the top in a wider (540 px) window.
 -- Each tab = 100 wide, 6 px gap. Total span: 5*100 + 4*6 = 524 < 540-PAD*2.
 c.btnTabCarrier  = btn("CARRIER",  PAD + (100+6)*0, 4, 100)
 c.btnTabMarshall = btn("MARSHALL", PAD + (100+6)*1, 4, 100)
@@ -249,7 +249,7 @@ c.btnWind4h   = btn("4h",   PAD + (wb+4)*5, y, wb)
 c.btnWind8h   = btn("8h",   PAD + (wb+4)*6, y, wb)
 
 -- ================================================================= TOWER TAB ==
--- v1.3-beta9: layout top → bottom:
+-- v1.3-beta10: layout top → bottom:
 --   1. Mini overhead radar (left) + side view (right)  y=30..160
 --   2. STACK / CHARLIE'D / COMMENCING rosters          y=170..580
 --   3. Existing broadcast controls                     y=600..830
@@ -257,7 +257,7 @@ c.btnWind8h   = btn("8h",   PAD + (wb+4)*6, y, wb)
 -- repositions them every poll from carriergui_stack.txt.
 
 -- --- Mini overhead radar (carrier at centre, 25nm scale, left half) ----------
-c.lblTwrOhHdr   = lbl("OVERHEAD  ·  25 nm",            PAD,     30, 250, CapSkin,  14)
+c.lblTwrOhHdr   = lbl("MARSHAL STACK  ·  6 nm  ·  centred on stack", PAD, 30, 270, CapSkin, 14)
 c.tScopeL  = solidW( 14,  46, 232, 116, SCOPE_BG_SKIN, 1)
 c.tBordLT  = solidW( 14,  46, 232,   1, SCOPE_RG_SKIN, 3)
 c.tBordLB  = solidW( 14, 161, 232,   1, SCOPE_RG_SKIN, 3)
@@ -266,36 +266,72 @@ c.tBordLR  = solidW(245,  46,   1, 116, SCOPE_RG_SKIN, 3)
 c.tAxH     = solidW( 24, 103, 212,   1, SCOPE_LN_SKIN, 3)
 c.tAxV     = solidW(130,  50,   1, 108, SCOPE_LN_SKIN, 3)
 c.tShip    = solidW(127, 100,   6,   6, SHIP_MARK_SKIN, 3)
--- rings (generated — 12.5 / 25 nm)
-c.tRingA1  = seg(147, 102, 18, 2, 90.0)
-c.tRingA2  = seg(142, 117, 18, 2, 126.0)
-c.tRingA3  = seg(129, 127, 18, 2, 162.0)
-c.tRingA4  = seg(113, 127, 18, 2, 198.0)
-c.tRingA5  = seg(100, 117, 18, 2, 234.0)
-c.tRingA6  = seg( 95, 102, 18, 2, 270.0)
-c.tRingA7  = seg(100,  87, 18, 2, 306.0)
-c.tRingA8  = seg(113,  77, 18, 2, 342.0)
-c.tRingA9  = seg(129,  77, 18, 2, 378.0)
-c.tRingA10 = seg(142,  87, 18, 2, 414.0)
-c.tRingB1  = seg(169, 102, 25, 2, 90.0)
-c.tRingB2  = seg(164, 125, 25, 2, 115.7)
-c.tRingB3  = seg(150, 143, 25, 2, 141.4)
-c.tRingB4  = seg(129, 153, 25, 2, 167.1)
-c.tRingB5  = seg(106, 153, 25, 2, 192.9)
-c.tRingB6  = seg( 85, 143, 25, 2, 218.6)
-c.tRingB7  = seg( 71, 125, 25, 2, 244.3)
-c.tRingB8  = seg( 65, 102, 25, 2, 270.0)
-c.tRingB9  = seg( 71,  79, 25, 2, 295.7)
-c.tRingB10 = seg( 85,  61, 25, 2, 321.4)
-c.tRingB11 = seg(106,  51, 25, 2, 347.1)
-c.tRingB12 = seg(129,  51, 25, 2, 372.9)
-c.tRingB13 = seg(150,  61, 25, 2, 398.6)
-c.tRingB14 = seg(164,  79, 25, 2, 424.3)
+-- stack-relative rings: 2 / 4 / 6 nm (generated)
+c.tRingA1 = seg(143, 102, 10, 2, 90.0)
+c.tRingA2 = seg(141, 111, 10, 2, 120.0)
+c.tRingA3 = seg(134, 118, 10, 2, 150.0)
+c.tRingA4 = seg(125, 120, 10, 2, 180.0)
+c.tRingA5 = seg(116, 118, 10, 2, 210.0)
+c.tRingA6 = seg(109, 111, 10, 2, 240.0)
+c.tRingA7 = seg(107, 102, 10, 2, 270.0)
+c.tRingA8 = seg(109, 93, 10, 2, 300.0)
+c.tRingA9 = seg(116, 86, 10, 2, 330.0)
+c.tRingA10 = seg(125, 84, 10, 2, 360.0)
+c.tRingA11 = seg(134, 86, 10, 2, 390.0)
+c.tRingA12 = seg(141, 93, 10, 2, 420.0)
+c.tRingB1 = seg(160, 102, 12, 2, 90.0)
+c.tRingB2 = seg(158, 113, 12, 2, 108.0)
+c.tRingB3 = seg(153, 123, 12, 2, 126.0)
+c.tRingB4 = seg(145, 131, 12, 2, 144.0)
+c.tRingB5 = seg(135, 136, 12, 2, 162.0)
+c.tRingB6 = seg(124, 138, 12, 2, 180.0)
+c.tRingB7 = seg(113, 136, 12, 2, 198.0)
+c.tRingB8 = seg(103, 131, 12, 2, 216.0)
+c.tRingB9 = seg(95, 123, 12, 2, 234.0)
+c.tRingB10 = seg(90, 113, 12, 2, 252.0)
+c.tRingB11 = seg(88, 102, 12, 2, 270.0)
+c.tRingB12 = seg(90, 91, 12, 2, 288.0)
+c.tRingB13 = seg(95, 81, 12, 2, 306.0)
+c.tRingB14 = seg(103, 73, 12, 2, 324.0)
+c.tRingB15 = seg(113, 68, 12, 2, 342.0)
+c.tRingB16 = seg(124, 66, 12, 2, 360.0)
+c.tRingB17 = seg(135, 68, 12, 2, 378.0)
+c.tRingB18 = seg(145, 73, 12, 2, 396.0)
+c.tRingB19 = seg(153, 81, 12, 2, 414.0)
+c.tRingB20 = seg(158, 91, 12, 2, 432.0)
+c.tRingC1 = seg(178, 102, 13, 2, 90.0)
+c.tRingC2 = seg(176, 114, 13, 2, 102.9)
+c.tRingC3 = seg(172, 125, 13, 2, 115.7)
+c.tRingC4 = seg(166, 136, 13, 2, 128.6)
+c.tRingC5 = seg(157, 144, 13, 2, 141.4)
+c.tRingC6 = seg(147, 151, 13, 2, 154.3)
+c.tRingC7 = seg(136, 155, 13, 2, 167.1)
+c.tRingC8 = seg(124, 156, 13, 2, 180.0)
+c.tRingC9 = seg(111, 155, 13, 2, 192.9)
+c.tRingC10 = seg(100, 151, 13, 2, 205.7)
+c.tRingC11 = seg(90, 144, 13, 2, 218.6)
+c.tRingC12 = seg(81, 136, 13, 2, 231.4)
+c.tRingC13 = seg(75, 125, 13, 2, 244.3)
+c.tRingC14 = seg(71, 114, 13, 2, 257.1)
+c.tRingC15 = seg(70, 102, 13, 2, 270.0)
+c.tRingC16 = seg(71, 90, 13, 2, 282.9)
+c.tRingC17 = seg(75, 79, 13, 2, 295.7)
+c.tRingC18 = seg(81, 68, 13, 2, 308.6)
+c.tRingC19 = seg(90, 60, 13, 2, 321.4)
+c.tRingC20 = seg(100, 53, 13, 2, 334.3)
+c.tRingC21 = seg(111, 49, 13, 2, 347.1)
+c.tRingC22 = seg(124, 48, 13, 2, 360.0)
+c.tRingC23 = seg(136, 49, 13, 2, 372.9)
+c.tRingC24 = seg(147, 53, 13, 2, 385.7)
+c.tRingC25 = seg(157, 60, 13, 2, 398.6)
+c.tRingC26 = seg(166, 68, 13, 2, 411.4)
+c.tRingC27 = seg(172, 79, 13, 2, 424.3)
+c.tRingC28 = seg(176, 90, 13, 2, 437.1)
 c.lblTwrOhN     = lbl("N",                             125,     50, 14, RadarLbl, 12)
 c.lblTwrOhE     = lbl("E",                             234,     98, 14, RadarLbl, 12)
 c.lblTwrOhS     = lbl("S",                             125,    148, 14, RadarLbl, 12)
 c.lblTwrOhW     = lbl("W",                              18,     98, 14, RadarLbl, 12)
-c.lblTwrOhCv    = lbl("CV",                            136,    104, 24, CarrierMark, 14)
+c.lblTwrOhCv    = lbl("STK",                           136,    104, 30, CarrierMark, 12)
 for i = 1, 10 do
     c["twrOh" .. i] = lbl("", -200, -200, 40, SpotSkin, 14)
 end
@@ -374,7 +410,7 @@ my = my + BTN_H + PAD
 c.btnCharlieBroadcast = btn("Broadcast Charlie", PAD, my, 250)
 
 -- ============================================================== MARSHALL TAB ==
--- v1.3-beta9: 60nm CCZ scatter view (replaces beta5's text list) + radio
+-- v1.3-beta10: 60nm CCZ scatter view (replaces beta5's text list) + radio
 -- readout below.  Scatter area is x=20..520, y=50..330 with the carrier dot
 -- at centre (270, 190).  Range scale: 60 nm = ~140 px.  Hook positions the
 -- modex slot pool (rowCcz1..12 re-purposed as scatter slots) every poll.
@@ -392,57 +428,117 @@ c.mAxisV  = solidW(269,  56,   1, 278, SCOPE_LN_SKIN, 3)
 -- own-ship marker square at scope centre
 c.mShip   = solidW(266, 186,   8,   8, SHIP_MARK_SKIN, 3)
 
--- range rings (generated by Tools/gen_radar_geometry.py — 20/40/60 nm)
-c.mRingA1  = seg(296, 189, 21, 2, 90.0)
-c.mRingA2  = seg(291, 208, 21, 2, 120.0)
-c.mRingA3  = seg(278, 221, 21, 2, 150.0)
-c.mRingA4  = seg(259, 226, 21, 2, 180.0)
-c.mRingA5  = seg(241, 221, 21, 2, 210.0)
-c.mRingA6  = seg(227, 208, 21, 2, 240.0)
-c.mRingA7  = seg(222, 189, 21, 2, 270.0)
-c.mRingA8  = seg(227, 170, 21, 2, 300.0)
-c.mRingA9  = seg(241, 157, 21, 2, 330.0)
-c.mRingA10 = seg(259, 152, 21, 2, 360.0)
-c.mRingA11 = seg(278, 157, 21, 2, 390.0)
-c.mRingA12 = seg(291, 170, 21, 2, 420.0)
+-- range rings + bearing ticks (generated by Tools/gen_radar_geometry.py)
+c.mRingA1 = seg(300, 189, 13, 2, 90.0)
+c.mRingA2 = seg(299, 200, 13, 2, 108.0)
+c.mRingA3 = seg(293, 211, 13, 2, 126.0)
+c.mRingA4 = seg(285, 219, 13, 2, 144.0)
+c.mRingA5 = seg(275, 224, 13, 2, 162.0)
+c.mRingA6 = seg(264, 226, 13, 2, 180.0)
+c.mRingA7 = seg(252, 224, 13, 2, 198.0)
+c.mRingA8 = seg(242, 219, 13, 2, 216.0)
+c.mRingA9 = seg(234, 211, 13, 2, 234.0)
+c.mRingA10 = seg(228, 200, 13, 2, 252.0)
+c.mRingA11 = seg(226, 189, 13, 2, 270.0)
+c.mRingA12 = seg(228, 178, 13, 2, 288.0)
+c.mRingA13 = seg(234, 167, 13, 2, 306.0)
+c.mRingA14 = seg(242, 159, 13, 2, 324.0)
+c.mRingA15 = seg(252, 154, 13, 2, 342.0)
+c.mRingA16 = seg(264, 152, 13, 2, 360.0)
+c.mRingA17 = seg(275, 154, 13, 2, 378.0)
+c.mRingA18 = seg(285, 159, 13, 2, 396.0)
+c.mRingA19 = seg(293, 167, 13, 2, 414.0)
+c.mRingA20 = seg(299, 178, 13, 2, 432.0)
+c.mRingB1 = seg(336, 189, 15, 2, 90.0)
+c.mRingB2 = seg(334, 203, 15, 2, 101.2)
+c.mRingB3 = seg(330, 217, 15, 2, 112.5)
+c.mRingB4 = seg(323, 230, 15, 2, 123.8)
+c.mRingB5 = seg(314, 241, 15, 2, 135.0)
+c.mRingB6 = seg(303, 250, 15, 2, 146.2)
+c.mRingB7 = seg(290, 256, 15, 2, 157.5)
+c.mRingB8 = seg(277, 261, 15, 2, 168.8)
+c.mRingB9 = seg(262, 262, 15, 2, 180.0)
+c.mRingB10 = seg(248, 261, 15, 2, 191.2)
+c.mRingB11 = seg(235, 256, 15, 2, 202.5)
+c.mRingB12 = seg(222, 250, 15, 2, 213.8)
+c.mRingB13 = seg(211, 241, 15, 2, 225.0)
+c.mRingB14 = seg(202, 230, 15, 2, 236.2)
+c.mRingB15 = seg(195, 217, 15, 2, 247.5)
+c.mRingB16 = seg(191, 203, 15, 2, 258.8)
+c.mRingB17 = seg(190, 189, 15, 2, 270.0)
+c.mRingB18 = seg(191, 175, 15, 2, 281.2)
+c.mRingB19 = seg(195, 161, 15, 2, 292.5)
+c.mRingB20 = seg(202, 148, 15, 2, 303.8)
+c.mRingB21 = seg(211, 137, 15, 2, 315.0)
+c.mRingB22 = seg(222, 128, 15, 2, 326.2)
+c.mRingB23 = seg(235, 122, 15, 2, 337.5)
+c.mRingB24 = seg(248, 117, 15, 2, 348.8)
+c.mRingB25 = seg(262, 116, 15, 2, 360.0)
+c.mRingB26 = seg(277, 117, 15, 2, 371.2)
+c.mRingB27 = seg(290, 122, 15, 2, 382.5)
+c.mRingB28 = seg(303, 128, 15, 2, 393.8)
+c.mRingB29 = seg(314, 137, 15, 2, 405.0)
+c.mRingB30 = seg(323, 148, 15, 2, 416.2)
+c.mRingB31 = seg(330, 161, 15, 2, 427.5)
+c.mRingB32 = seg(334, 175, 15, 2, 438.8)
+c.mRingC1 = seg(372, 189, 17, 2, 90.0)
+c.mRingC2 = seg(370, 205, 17, 2, 98.2)
+c.mRingC3 = seg(367, 220, 17, 2, 106.4)
+c.mRingC4 = seg(362, 235, 17, 2, 114.5)
+c.mRingC5 = seg(354, 248, 17, 2, 122.7)
+c.mRingC6 = seg(345, 261, 17, 2, 130.9)
+c.mRingC7 = seg(334, 272, 17, 2, 139.1)
+c.mRingC8 = seg(321, 282, 17, 2, 147.3)
+c.mRingC9 = seg(307, 289, 17, 2, 155.5)
+c.mRingC10 = seg(292, 295, 17, 2, 163.6)
+c.mRingC11 = seg(277, 298, 17, 2, 171.8)
+c.mRingC12 = seg(262, 299, 17, 2, 180.0)
+c.mRingC13 = seg(246, 298, 17, 2, 188.2)
+c.mRingC14 = seg(231, 295, 17, 2, 196.4)
+c.mRingC15 = seg(216, 289, 17, 2, 204.5)
+c.mRingC16 = seg(202, 282, 17, 2, 212.7)
+c.mRingC17 = seg(189, 272, 17, 2, 220.9)
+c.mRingC18 = seg(178, 261, 17, 2, 229.1)
+c.mRingC19 = seg(169, 248, 17, 2, 237.3)
+c.mRingC20 = seg(161, 235, 17, 2, 245.5)
+c.mRingC21 = seg(156, 220, 17, 2, 253.6)
+c.mRingC22 = seg(153, 205, 17, 2, 261.8)
+c.mRingC23 = seg(152, 189, 17, 2, 270.0)
+c.mRingC24 = seg(153, 173, 17, 2, 278.2)
+c.mRingC25 = seg(156, 158, 17, 2, 286.4)
+c.mRingC26 = seg(161, 143, 17, 2, 294.5)
+c.mRingC27 = seg(169, 130, 17, 2, 302.7)
+c.mRingC28 = seg(178, 117, 17, 2, 310.9)
+c.mRingC29 = seg(189, 106, 17, 2, 319.1)
+c.mRingC30 = seg(202, 96, 17, 2, 327.3)
+c.mRingC31 = seg(216, 89, 17, 2, 335.5)
+c.mRingC32 = seg(231, 83, 17, 2, 343.6)
+c.mRingC33 = seg(246, 80, 17, 2, 351.8)
+c.mRingC34 = seg(262, 79, 17, 2, 360.0)
+c.mRingC35 = seg(277, 80, 17, 2, 368.2)
+c.mRingC36 = seg(292, 83, 17, 2, 376.4)
+c.mRingC37 = seg(307, 89, 17, 2, 384.5)
+c.mRingC38 = seg(321, 96, 17, 2, 392.7)
+c.mRingC39 = seg(334, 106, 17, 2, 400.9)
+c.mRingC40 = seg(345, 117, 17, 2, 409.1)
+c.mRingC41 = seg(354, 130, 17, 2, 417.3)
+c.mRingC42 = seg(362, 143, 17, 2, 425.5)
+c.mRingC43 = seg(367, 158, 17, 2, 433.6)
+c.mRingC44 = seg(370, 173, 17, 2, 441.8)
 
-c.mRingB1  = seg(328, 189, 30, 2, 90.0)
-c.mRingB2  = seg(322, 217, 30, 2, 112.5)
-c.mRingB3  = seg(306, 241, 30, 2, 135.0)
-c.mRingB4  = seg(283, 256, 30, 2, 157.5)
-c.mRingB5  = seg(255, 262, 30, 2, 180.0)
-c.mRingB6  = seg(227, 256, 30, 2, 202.5)
-c.mRingB7  = seg(203, 241, 30, 2, 225.0)
-c.mRingB8  = seg(187, 217, 30, 2, 247.5)
-c.mRingB9  = seg(182, 189, 30, 2, 270.0)
-c.mRingB10 = seg(187, 161, 30, 2, 292.5)
-c.mRingB11 = seg(203, 137, 30, 2, 315.0)
-c.mRingB12 = seg(227, 122, 30, 2, 337.5)
-c.mRingB13 = seg(255, 116, 30, 2, 360.0)
-c.mRingB14 = seg(283, 122, 30, 2, 382.5)
-c.mRingB15 = seg(306, 137, 30, 2, 405.0)
-c.mRingB16 = seg(322, 161, 30, 2, 427.5)
-
-c.mRingC1  = seg(362, 189, 36, 2, 90.0)
-c.mRingC2  = seg(356, 223, 36, 2, 108.0)
-c.mRingC3  = seg(341, 254, 36, 2, 126.0)
-c.mRingC4  = seg(316, 278, 36, 2, 144.0)
-c.mRingC5  = seg(286, 294, 36, 2, 162.0)
-c.mRingC6  = seg(252, 299, 36, 2, 180.0)
-c.mRingC7  = seg(218, 294, 36, 2, 198.0)
-c.mRingC8  = seg(187, 278, 36, 2, 216.0)
-c.mRingC9  = seg(163, 254, 36, 2, 234.0)
-c.mRingC10 = seg(147, 223, 36, 2, 252.0)
-c.mRingC11 = seg(142, 189, 36, 2, 270.0)
-c.mRingC12 = seg(147, 155, 36, 2, 288.0)
-c.mRingC13 = seg(163, 124, 36, 2, 306.0)
-c.mRingC14 = seg(187, 100, 36, 2, 324.0)
-c.mRingC15 = seg(218,  84, 36, 2, 342.0)
-c.mRingC16 = seg(252,  79, 36, 2, 360.0)
-c.mRingC17 = seg(286,  84, 36, 2, 378.0)
-c.mRingC18 = seg(316, 100, 36, 2, 396.0)
-c.mRingC19 = seg(341, 124, 36, 2, 414.0)
-c.mRingC20 = seg(356, 155, 36, 2, 432.0)
+-- bearing ticks every 30 deg just outside the 60 nm ring
+c.mTick1 = seg(265, 72, 10, 2, -90.0)
+c.mTick2 = seg(324, 88, 10, 2, -60.0)
+c.mTick3 = seg(366, 130, 10, 2, -30.0)
+c.mTick4 = seg(382, 189, 10, 2, 0.0)
+c.mTick5 = seg(366, 248, 10, 2, 30.0)
+c.mTick6 = seg(324, 290, 10, 2, 60.0)
+c.mTick7 = seg(265, 306, 10, 2, 90.0)
+c.mTick8 = seg(207, 290, 10, 2, 120.0)
+c.mTick9 = seg(164, 248, 10, 2, 150.0)
+c.mTick10 = seg(148, 189, 10, 2, 180.0)
+c.mTick11 = seg(164, 130, 10, 2, 210.0)
+c.mTick12 = seg(206, 88, 10, 2, 240.0)
 
 -- Range scale ticks + cardinal letters
 c.lblCczN60        = lbl("60",                                       274,  72, 20, RadarLbl, 12)
@@ -469,7 +565,7 @@ end
 c.lblMarStatus     = lbl("(waiting for inbound traffic...)",           PAD, 630, W - PAD*2, CapSkin, 18)
 
 -- ============================================================= DECKBOSS TAB ==
--- v1.3-beta9: rotated so BOW = top, STERN = bottom, PORT = left, STBD = right
+-- v1.3-beta10: rotated so BOW = top, STERN = bottom, PORT = left, STBD = right
 -- (standard top-down view).  The deck silhouette is painted with box-drawing
 -- character widgets at port/stbd/bow/stern edges — dxgui has no line/rect
 -- primitives so each character is its own Static widget.  Zone labels sit
@@ -478,57 +574,56 @@ c.lblMarStatus     = lbl("(waiting for inbound traffic...)",           PAD, 630,
 
 c.lblDbHdr      = lbl("DECK VIEW  ·  BOW = top  ·  PORT = left",  PAD, 30, W - PAD*2, LabelSkin, 18)
 
--- ── deck silhouette drawn with solid fills + edge lines ──────────────────
--- Deck plate x=150..390, y=60..330.  BOW top, STERN bottom, PORT left.
-c.dbDeck    = solidW(150,  60, 240, 270, DECK_FILL_SKIN, 1)
--- angled landing-area strip (rotated like the real angled deck)
+-- ── deck silhouette — HORIZONTAL: BOW = right, PORT = top ────────────────
+-- Deck plate x=60..480 (420 long), y=120..240 (120 wide).
+c.dbDeck    = solidW( 60, 120, 420, 120, DECK_FILL_SKIN, 1)
+-- angled landing-area strip (rises to port/top toward the bow)
 do
-    local strip = solidW(120, 190, 240, 56, DECK_STRP_SKIN, 2)
-    strip.params.angle = 78
-    strip.params.pivotPoint = { ["x"] = 120, ["y"] = 28 }
+    local strip = solidW( 75, 161, 270,  48, DECK_STRP_SKIN, 2)
+    strip.params.angle = -10
+    strip.params.pivotPoint = { ["x"] = 135, ["y"] = 24 }
     c.dbStrip = strip
 end
 -- deck edge lines
-c.dbEdgeT   = solidW(150,  60, 240,   2, DECK_EDGE_SKIN, 3)
-c.dbEdgeB   = solidW(150, 328, 240,   2, DECK_EDGE_SKIN, 3)
-c.dbEdgeL   = solidW(150,  60,   2, 270, DECK_EDGE_SKIN, 3)
-c.dbEdgeR   = solidW(388,  60,   2, 270, DECK_EDGE_SKIN, 3)
--- catapult tracks: 1+2 at the bow (straight), 3+4 on the angled waist
-c.dbCat1    = solidW(196,  64,   3,  72, CAT_SKIN, 3)
-c.dbCat2    = solidW(244,  64,   3,  72, CAT_SKIN, 3)
+c.dbEdgeT   = solidW( 60, 120, 420,   2, DECK_EDGE_SKIN, 3)
+c.dbEdgeB   = solidW( 60, 238, 420,   2, DECK_EDGE_SKIN, 3)
+c.dbEdgeL   = solidW( 60, 120,   2, 120, DECK_EDGE_SKIN, 3)
+c.dbEdgeR   = solidW(478, 120,   2, 120, DECK_EDGE_SKIN, 3)
+-- catapult tracks: 1+2 at the bow (right end), 3+4 angled on the waist
+c.dbCat1    = solidW(390, 148,  76,   3, CAT_SKIN, 3)
+c.dbCat2    = solidW(390, 184,  76,   3, CAT_SKIN, 3)
 do
-    local c3 = solidW(282, 150,   3,  76, CAT_SKIN, 3)
-    c3.params.angle = -12
-    c3.params.pivotPoint = { ["x"] = 1, ["y"] = 38 }
+    local c3 = solidW(160, 172,  76,   3, CAT_SKIN, 3)
+    c3.params.angle = -10
+    c3.params.pivotPoint = { ["x"] = 38, ["y"] = 1 }
     c.dbCat3 = c3
-    local c4 = solidW(318, 158,   3,  76, CAT_SKIN, 3)
-    c4.params.angle = -12
-    c4.params.pivotPoint = { ["x"] = 1, ["y"] = 38 }
+    local c4 = solidW(160, 202,  76,   3, CAT_SKIN, 3)
+    c4.params.angle = -10
+    c4.params.pivotPoint = { ["x"] = 38, ["y"] = 1 }
     c.dbCat4 = c4
 end
--- island on the starboard edge + the four elevators
-c.dbIslandF = solidW(370, 148,  18,  64, ISLAND_SKIN, 2)
-c.dbEl1     = solidW(382,  98,  12,  30, ELEV_SKIN, 2)
-c.dbEl2     = solidW(382, 222,  12,  30, ELEV_SKIN, 2)
-c.dbEl3     = solidW(146, 100,  12,  30, ELEV_SKIN, 2)
-c.dbEl4     = solidW(146, 238,  12,  30, ELEV_SKIN, 2)
+-- island on the starboard (bottom) edge + the four elevators
+c.dbIslandF = solidW(290, 224,  64,  14, ISLAND_SKIN, 2)
+c.dbEl1     = solidW(368, 230,  30,  10, ELEV_SKIN, 2)
+c.dbEl2     = solidW(240, 230,  30,  10, ELEV_SKIN, 2)
+c.dbEl3     = solidW(150, 122,  30,  10, ELEV_SKIN, 2)
+c.dbEl4     = solidW( 90, 230,  30,  10, ELEV_SKIN, 2)
 
--- Deck zone labels — positioned on the drawn silhouette (deck x150..390,
--- y60..330; cats 1/2 at the bow x196/244, cats 3/4 on the angled waist).
-c.lblDbBow      = lbl("BOW",        255,  44, 60, DeckSkin, 14)
-c.lblDbCat1     = lbl("CAT1",       176, 140, 44, DeckHdr,  14)
-c.lblDbCat2     = lbl("CAT2",       248, 140, 44, DeckHdr,  14)
-c.lblDbCat3     = lbl("CAT3",       246, 232, 44, DeckHdr,  14)
-c.lblDbCat4     = lbl("CAT4",       320, 240, 44, DeckHdr,  14)
-c.lblDbIsland   = lbl("ISLAND",     318, 168, 50, DeckSkin, 13)
-c.lblDb6pk      = lbl("6-PACK",     300, 112, 60, DeckSkin, 13)
-c.lblDbWaist    = lbl("WAIST",      160, 184, 60, DeckSkin, 13)
-c.lblDbElev1    = lbl("EL1",        352, 104, 30, DeckSkin, 12)
-c.lblDbElev2    = lbl("EL2",        352, 228, 30, DeckSkin, 12)
-c.lblDbElev3    = lbl("EL3",        114, 104, 30, DeckSkin, 12)
-c.lblDbElev4    = lbl("EL4",        114, 244, 30, DeckSkin, 12)
-c.lblDbJunk     = lbl("JUNKYARD",   200, 300, 90, DeckHdr,  14)
-c.lblDbStern    = lbl("STERN",      255, 334, 60, DeckSkin, 14)
+-- Deck zone labels — horizontal silhouette (BOW right, PORT top)
+c.lblDbBow      = lbl("BOW",        484, 172, 40, DeckSkin, 14)
+c.lblDbStern    = lbl("STERN",       14, 172, 50, DeckSkin, 14)
+c.lblDbCat1     = lbl("CAT1",       392, 132, 44, DeckHdr,  13)
+c.lblDbCat2     = lbl("CAT2",       392, 192, 44, DeckHdr,  13)
+c.lblDbCat3     = lbl("CAT3",       150, 156, 44, DeckHdr,  13)
+c.lblDbCat4     = lbl("CAT4",       150, 208, 44, DeckHdr,  13)
+c.lblDbIsland   = lbl("ISLAND",     300, 246, 50, DeckSkin, 12)
+c.lblDb6pk      = lbl("6-PACK",     330, 128, 60, DeckSkin, 12)
+c.lblDbWaist    = lbl("WAIST",      230, 146, 60, DeckSkin, 12)
+c.lblDbElev1    = lbl("EL1",        372, 246, 30, DeckSkin, 11)
+c.lblDbElev2    = lbl("EL2",        244, 246, 30, DeckSkin, 11)
+c.lblDbElev3    = lbl("EL3",        154, 106, 30, DeckSkin, 11)
+c.lblDbElev4    = lbl("EL4",         94, 246, 30, DeckSkin, 11)
+c.lblDbJunk     = lbl("JUNKYARD",    70, 128, 80, DeckHdr,  12)
 
 -- Aircraft modex slot pool — hook moves visible ones into position.
 for i = 1, 16 do
@@ -536,17 +631,17 @@ for i = 1, 16 do
 end
 
 -- ON DECK summary list (one line per aircraft, below the deck silhouette).
-c.lblDbOnDeckHdr  = lbl("ON DECK",                                  PAD, 380, W - PAD*2, LabelSkin, 18)
-c.lblDbOnDeckCols = lbl("  MODEX     ALONG       ACROSS     ZONE",  PAD, 400, W - PAD*2, CapSkin,   14)
+c.lblDbOnDeckHdr  = lbl("ON DECK",                                  PAD, 280, W - PAD*2, LabelSkin, 18)
+c.lblDbOnDeckCols = lbl("  MODEX     ALONG       ACROSS     ZONE",  PAD, 300, W - PAD*2, CapSkin,   14)
 for i = 1, 10 do
-    c["rowDbOnDeck" .. i] = lbl("", PAD, 418 + (i-1)*15, W - PAD*2, RowSkinMon, 15)
+    c["rowDbOnDeck" .. i] = lbl("", PAD, 318 + (i-1)*15, W - PAD*2, RowSkinMon, 15)
 end
 
 -- Conga toggle (state label only; path overlay deferred).
-c.lblDbCongaState = lbl("CONGA LINE:  OFF", PAD,        600, 200, ValueSkin, 20)
-c.btnDbConga      = btn("TOGGLE CONGA",     PAD + 220,  600, 150)
+c.lblDbCongaState = lbl("CONGA LINE:  OFF", PAD,        490, 200, ValueSkin, 20)
+c.btnDbConga      = btn("TOGGLE CONGA",     PAD + 220,  490, 150)
 c.lblDbCongaHint  = lbl("(path overlay disabled in beta — preview only)",
-                        PAD, 628, W - PAD*2, CapSkin, 16)
+                        PAD, 518, W - PAD*2, CapSkin, 16)
 
 -- ================================================================= LSO TAB ==
 -- v1.3: rebuilt.  Layout top → bottom:
@@ -563,7 +658,7 @@ c.lblDbCongaHint  = lbl("(path overlay disabled in beta — preview only)",
 --   5. RECOVERY EVENTS — last 3 LSO prompts (CASE III monitor still wired).
 
 -- ── CASE I PATTERN ──────────────────────────────────────────
--- v1.3-beta9: racetrack visual.  Landmark labels at fixed pattern points,
+-- v1.3-beta10: racetrack visual.  Landmark labels at fixed pattern points,
 -- carrier marker at the trap position, aircraft slot pool the hook moves
 -- to each plane's current point.  90° corners at BREAK and at 90→groove.
 c.lblPatHdr      = lbl("CASE I OVERHEAD  ·  port racetrack",  PAD,  30, W - PAD*2, LabelSkin, 18)
@@ -578,33 +673,28 @@ c.pBordT   = solidW( 14,  46, 512,   1, SCOPE_RG_SKIN, 3)
 c.pBordB   = solidW( 14, 279, 512,   1, SCOPE_RG_SKIN, 3)
 c.pBordL   = solidW( 14,  46,   1, 234, SCOPE_RG_SKIN, 3)
 c.pBordR   = solidW(525,  46,   1, 234, SCOPE_RG_SKIN, 3)
--- racetrack legs
-c.pLegR    = solidW(399,  55,   2, 206, SCOPE_RG_SKIN, 3)
-c.pLegT    = solidW(170,  54, 230,   2, SCOPE_RG_SKIN, 3)
-c.pLegL    = solidW(139,  85,   2, 146, SCOPE_RG_SKIN, 3)
-c.pLegB    = solidW(170, 259, 230,   2, SCOPE_RG_SKIN, 3)
--- rounded turns at the two left corners (generated arcs)
-c.pArcTL1  = seg(134,  78, 14, 2, 281.2)
-c.pArcTL2  = seg(138,  67, 14, 2, 303.8)
-c.pArcTL3  = seg(146,  59, 14, 2, 326.2)
-c.pArcTL4  = seg(157,  55, 14, 2, 348.8)
-c.pArcBL1  = seg(157, 258, 14, 2, 191.2)
-c.pArcBL2  = seg(146, 254, 14, 2, 213.8)
-c.pArcBL3  = seg(138, 246, 14, 2, 236.2)
-c.pArcBL4  = seg(134, 235, 14, 2, 258.8)
--- own ship on the right leg (trap end)
-c.pShip    = solidW(394,  82,  12,  22, SHIP_MARK_SKIN, 3)
+-- racetrack legs — HORIZONTAL layout (uses the full panel width).
+-- Flow: INITIAL enters bottom-left, upwind to the ship at bottom-right,
+-- 90° BREAK up the right side, 90° onto the downwind (top leg, right→left),
+-- rounded 180 turn on the left, back to the GROOVE and the TRAP.
+c.pLegB    = solidW(120, 219, 350,   2, SCOPE_RG_SKIN, 3)
+c.pLegR    = solidW(468,  90,   2, 131, SCOPE_RG_SKIN, 3)
+c.pLegT    = solidW(120,  89, 350,   2, SCOPE_RG_SKIN, 3)
+-- rounded 180 turn on the left (semicircle, generated)
+
+-- own ship on the bottom leg (trap end)
+c.pShip    = solidW(424, 209,  22,  12, SHIP_MARK_SKIN, 3)
 
 -- Pattern landmark labels (sit just off the drawn track)
-c.lblPatInitial  = lbl("INITIAL",   410, 225, 70, DeckSkin, 14)
-c.lblPatBreak    = lbl("BREAK",     410,  58, 60, DeckSkin, 14)
-c.lblPatDwnwd    = lbl("DOWNWIND",   55,  98, 80, DeckSkin, 14)
-c.lblPatAbeam    = lbl("ABEAM",      65, 160, 60, DeckSkin, 14)
-c.lblPat180      = lbl("180",        95, 228, 40, DeckSkin, 14)
-c.lblPat90       = lbl("90",        255, 264, 30, DeckSkin, 14)
-c.lblPatGroove   = lbl("GROOVE",    300, 150, 70, DeckSkin, 14)
-c.lblPatTrap     = lbl("TRAP",      410,  85, 50, DeckHdr,  16)
-c.lblPatCv       = lbl("CV",        375,  88, 30, CarrierMark, 16)
+c.lblPatInitial  = lbl("INITIAL",   110, 230, 70, DeckSkin, 14)
+c.lblPatBreak    = lbl("BREAK",     478, 148, 60, DeckSkin, 14)
+c.lblPatDwnwd    = lbl("DOWNWIND",  240,  68, 80, DeckSkin, 14)
+c.lblPatAbeam    = lbl("ABEAM",     408,  68, 60, DeckSkin, 14)
+c.lblPat180      = lbl("180",        38, 148, 40, DeckSkin, 14)
+c.lblPat90       = lbl("90",         88, 238, 30, DeckSkin, 14)
+c.lblPatGroove   = lbl("GROOVE",    320, 230, 70, DeckSkin, 14)
+c.lblPatTrap     = lbl("TRAP",      424, 192, 50, DeckHdr,  14)
+c.lblPatCv       = lbl("CV",        450, 230, 30, CarrierMark, 14)
 
 -- Aircraft slot pool — 8 modex labels the hook moves to whichever pattern
 -- point the bridge classified them at.

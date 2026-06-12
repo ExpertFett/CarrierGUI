@@ -63,12 +63,12 @@ Name: "deskicon";Description: "Create a desktop shortcut to the patcher folder";
 
 [Dirs]
 ; Make sure the per-user Saved Games\DCS\Scripts\Hooks tree exists.
-Name: "{userdocs}\..\Saved Games\DCS\Scripts\Hooks"
+Name: "{%USERPROFILE}\Saved Games\DCS\Scripts\Hooks"
 
 [Files]
 ; ---- Hook files: into Saved Games (per-user) -----------------------------
-Source: "{#SrcStaging}\Hooks\carrier-gui-hook.lua";   DestDir: "{userdocs}\..\Saved Games\DCS\Scripts\Hooks"; Components: hook; Flags: ignoreversion
-Source: "{#SrcStaging}\Hooks\carrier-gui.dlg";        DestDir: "{userdocs}\..\Saved Games\DCS\Scripts\Hooks"; Components: hook; Flags: ignoreversion
+Source: "{#SrcStaging}\Hooks\carrier-gui-hook.lua";   DestDir: "{%USERPROFILE}\Saved Games\DCS\Scripts\Hooks"; Components: hook; Flags: ignoreversion
+Source: "{#SrcStaging}\Hooks\carrier-gui.dlg";        DestDir: "{%USERPROFILE}\Saved Games\DCS\Scripts\Hooks"; Components: hook; Flags: ignoreversion
 
 ; ---- Patcher (incl. bundled Python) into Program Files -------------------
 Source: "{#SrcStaging}\Patcher\*";                    DestDir: "{app}\Patcher"; Components: patcher; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -97,8 +97,8 @@ Filename: "powershell.exe"; \
 
 [UninstallDelete]
 ; Sweep the Hooks files out on uninstall (they live outside {app}).
-Type: files; Name: "{userdocs}\..\Saved Games\DCS\Scripts\Hooks\carrier-gui-hook.lua"
-Type: files; Name: "{userdocs}\..\Saved Games\DCS\Scripts\Hooks\carrier-gui.dlg"
+Type: files; Name: "{%USERPROFILE}\Saved Games\DCS\Scripts\Hooks\carrier-gui-hook.lua"
+Type: files; Name: "{%USERPROFILE}\Saved Games\DCS\Scripts\Hooks\carrier-gui.dlg"
 
 [Code]
 function InitializeSetup(): Boolean;

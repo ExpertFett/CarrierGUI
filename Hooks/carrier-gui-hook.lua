@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v1.3-beta5 — full 5-tab UX overhaul)
+-- CarrierGUI Hook  (rebuild v1.3-beta6 — full 5-tab UX overhaul)
 --   CARRIER  — F10 menu controls.  Unchanged.
 --   MARSHALL — NEW. 60nm CCZ tracker + marshal radio readout.
 --   TOWER    — was old MARSHALL.  Now has STACK / CHARLIE'D / COMMENCING
@@ -119,10 +119,15 @@ local function load()
         'btnAclsOn','btnAclsOff','lblWind','btnWindStop','btnWind30m','btnWind60m',
         'btnWind90m','btnWind2h','btnWind4h','btnWind8h',
     }
-    -- TOWER tab (renamed from MARSHALL in beta1).  Now also owns three
-    -- roster sections (STACK / CHARLIE'D / COMMENCING) above the existing
-    -- broadcast buttons.
+    -- TOWER: mini overhead + side view radars on top, three roster sections
+    -- below, existing broadcast buttons at the bottom.
     local TOWER_WIDGETS = {
+        -- Mini overhead radar
+        'lblTwrOhHdr','lblTwrOhN','lblTwrOhE','lblTwrOhS','lblTwrOhW','lblTwrOhCv',
+        'twrOh1','twrOh2','twrOh3','twrOh4','twrOh5','twrOh6','twrOh7','twrOh8','twrOh9','twrOh10',
+        -- Mini side view
+        'lblTwrSvHdr','lblTwrSvA15','lblTwrSvA12','lblTwrSvA9','lblTwrSvA6','lblTwrSvA3',
+        'twrSv1','twrSv2','twrSv3','twrSv4','twrSv5','twrSv6','twrSv7','twrSv8','twrSv9','twrSv10',
         -- STACK roster
         'lblTwrStackHdr','lblTwrStackCols',
         'rowTwrStack1','rowTwrStack2','rowTwrStack3','rowTwrStack4',
@@ -139,9 +144,10 @@ local function load()
         'lblMarCharlie','lblCharlieCap','btnCharlieDown','lblCharlieVal',
         'btnCharlieUp','btnCharlieBroadcast',
     }
-    -- MARSHALL tab: 60nm CCZ tracker + radio readout.
+    -- MARSHALL: 60nm CCZ scatter view + radio readout below.
     local MARSHALL_WIDGETS = {
-        'lblMarshallHdr','lblMarshallCols',
+        'lblMarshallHdr',
+        'lblCczN60','lblCczN30','lblCczS30','lblCczS60','lblCczW60','lblCczE60','lblCczCv',
         'rowCcz1','rowCcz2','rowCcz3','rowCcz4','rowCcz5','rowCcz6',
         'rowCcz7','rowCcz8','rowCcz9','rowCcz10','rowCcz11','rowCcz12',
         'lblMarRadioHdr','lblMarRadioBase','lblMarRadioCols',
@@ -149,15 +155,25 @@ local function load()
         'rowMarCall7','rowMarCall8','rowMarCall9','rowMarCall10','rowMarCall11','rowMarCall12',
         'lblMarStatus',
     }
-    -- DECKBOSS tab: top-down deck view (labels + modex slot pool).
+    -- DECKBOSS: rotated top-down view with box-drawn outline + zone labels +
+    -- modex slot pool + ON DECK list + conga toggle.
     local DECKBOSS_WIDGETS = {
         'lblDbHdr',
-        -- Deck zone landmarks
+        -- Outline (bow / port / stbd / stern edges)
+        'lblDbBowH1','lblDbBowH2','lblDbBowH3','lblDbBowH4','lblDbBowH5',
+        'lblDbBowH6','lblDbBowH7','lblDbBowH8','lblDbBowH9',
+        'lblDbPortV1','lblDbPortV2','lblDbPortV3','lblDbPortV4','lblDbPortV5','lblDbPortV6',
+        'lblDbPortV7','lblDbPortV8','lblDbPortV9','lblDbPortV10','lblDbPortV11','lblDbPortV12',
+        'lblDbStbdV1','lblDbStbdV2','lblDbStbdV3','lblDbStbdV4','lblDbStbdV5','lblDbStbdV6',
+        'lblDbStbdV7','lblDbStbdV8','lblDbStbdV9','lblDbStbdV10','lblDbStbdV11','lblDbStbdV12',
+        'lblDbStnH1','lblDbStnH2','lblDbStnH3','lblDbStnH4','lblDbStnH5',
+        'lblDbStnH6','lblDbStnH7','lblDbStnH8','lblDbStnH9',
+        -- Zone landmarks
         'lblDbBow','lblDbCat1','lblDbCat2','lblDbCat3','lblDbCat4',
         'lblDbIsland','lblDb6pk','lblDbWaist',
         'lblDbElev1','lblDbElev2','lblDbElev3','lblDbElev4',
         'lblDbJunk','lblDbStern',
-        -- Aircraft slot pool (hook moves visible ones around)
+        -- Aircraft slot pool
         'spotDb1','spotDb2','spotDb3','spotDb4','spotDb5','spotDb6','spotDb7','spotDb8',
         'spotDb9','spotDb10','spotDb11','spotDb12','spotDb13','spotDb14','spotDb15','spotDb16',
         -- On-deck list
@@ -167,15 +183,23 @@ local function load()
         -- Conga toggle
         'lblDbCongaState','btnDbConga','lblDbCongaHint',
     }
-    -- LSO tab: pattern roster + lights + PLAT cam (NVG / RESET CAM kept;
-    -- Wire / Deck / Zoom / Bingo / RecovOK retired).
+    -- LSO: racetrack visual (landmarks + outline + aircraft slot pool) +
+    -- lights + PLAT cam (NVG / RESET CAM only) + ship + events.
     local LSO_WIDGETS = {
-        -- CASE I pattern roster
-        'lblPatHdr','lblPatCols',
-        'rowPatInit','rowPatBrk','rowPatDwn','rowPatAbm','rowPat180','rowPatGrv','rowPatTrap',
+        'lblPatHdr',
+        -- Racetrack landmarks
+        'lblPatInitial','lblPatBreak','lblPatDwnwd','lblPatAbeam',
+        'lblPat180','lblPat90','lblPatGroove','lblPatTrap','lblPatCv',
+        -- Racetrack outline (V = vertical edge, H = horizontal edge)
+        'lblPatV1','lblPatV2','lblPatV3','lblPatV4','lblPatV5','lblPatV6',
+        'lblPatV7','lblPatV8','lblPatV9','lblPatV10','lblPatV11','lblPatV12',
+        'lblPatH1','lblPatH2','lblPatH3','lblPatH4','lblPatH5',
+        'lblPatH6','lblPatH7','lblPatH8','lblPatH9','lblPatH10',
+        -- Aircraft slot pool
+        'acftPat1','acftPat2','acftPat3','acftPat4','acftPat5','acftPat6','acftPat7','acftPat8',
         -- LSO lights
         'lblLightsHdr','btnWaveOff','btnCut',
-        -- PLAT camera (NVG bar + RESET CAM only)
+        -- PLAT camera
         'lblLsoNvg', 'btnResetCam', 'lblNvgVal',
         'ledNvg1','ledNvg2','ledNvg3','ledNvg4','ledNvg5',
         'ledNvg6','ledNvg7','ledNvg8','ledNvg9','ledNvg10',
@@ -212,7 +236,7 @@ local function load()
     -- Gotcha #4: setVisible(false) destroys the dialog. We toggle visibility
     -- via the SRS-style pattern: real setVisible(true), then either setSize(0,0)
     -- (= hidden) or restore to full size.
-    local FULL_W, FULL_H = 540, 800   -- v1.3: 540×800 to fit roster sections
+    local FULL_W, FULL_H = 540, 900   -- v1.3-beta6: bumped for radar overlays
 
     -- Set a value-flag (used to pass numeric params like flight count / minutes
     -- to the bridge before firing the action flag).
@@ -465,7 +489,13 @@ local function load()
         return string.format('%02d:%02d', math.floor(sec / 60), sec % 60)
     end
 
-    -- ─── TOWER stack roster ──────────────────────────────────────────────
+    -- ─── TOWER stack roster + mini overhead/side radars ──────────────────
+    -- Stack file format includes ALT/IAS/POINT/STATE.  v1.3-beta6 also
+    -- positions twrOh* (overhead scatter) and twrSv* (side-view scatter)
+    -- using a separate parse that grabs BRG too — bridge writes BRG/NM in
+    -- the carriergui_ccz.txt format inside 25 nm.  For now we approximate
+    -- overhead position from the LAST PT (since stack.txt doesn't carry
+    -- BRG/NM).  TODO: bridge could be extended to write BRG into stack.txt.
     local function readStackState()
         local content = slurp(STACK_FILE_V13)
         local hold, charlie, commence = {}, {}, {}
@@ -499,9 +529,65 @@ local function load()
         fillRows(hold,     'rowTwrStack',   8)
         fillRows(charlie,  'rowTwrCharlie', 5)
         fillRows(commence, 'rowTwrComm',    5)
+
+        -- Side-view scatter: x slot by index, y by altitude.
+        -- 15k → y=50, 0 → y=170.  Spread x left-to-right at 16-px intervals
+        -- starting at x=325 (just right of the alt-axis labels).
+        local allAir = {}
+        for _, r in base.ipairs(hold)     do table.insert(allAir, r) end
+        for _, r in base.ipairs(charlie)  do table.insert(allAir, r) end
+        for _, r in base.ipairs(commence) do table.insert(allAir, r) end
+        for i = 1, 10 do
+            local r = allAir[i]
+            if r then
+                local altClamped = r.alt
+                if altClamped > 15000 then altClamped = 15000 end
+                if altClamped < 0     then altClamped = 0 end
+                local y = math.floor(50 + (15000 - altClamped) * (120 / 15000))
+                local x = 325 + ((i - 1) % 6) * 30
+                setText('twrSv' .. i, r.modex)
+                setBounds('twrSv' .. i, x, y, 40, 14)
+            else
+                setText('twrSv' .. i, '')
+                setBounds('twrSv' .. i, -200, -200, 40, 14)
+            end
+        end
+
+        -- Overhead scatter — stack.txt has no BRG so we approximate from
+        -- LAST PT: each pattern point gets a sketch x/y around carrier (cx=130, cy=100).
+        local ohXYByPoint = {
+            INITIAL  = { 165, 165 },   -- south of ship (down-right)
+            BREAK    = { 130,  85 },   -- at ship, top
+            DOWNWIND = {  80,  90 },   -- port-side mid (left)
+            ABEAM    = {  80, 110 },
+            ['180']  = {  85, 145 },
+            GROOVE   = { 115, 110 },
+            TRAP     = { 130, 100 },
+            enroute  = { 200, 160 },   -- off-radar (corner)
+            pattern  = { 100, 130 },
+        }
+        local placed = {}
+        for i = 1, 10 do
+            local r = allAir[i]
+            if r then
+                local xy = ohXYByPoint[r.pt] or ohXYByPoint.pattern
+                -- Stagger labels that share the same point so they don't pile up
+                local k = r.pt
+                placed[k] = (placed[k] or 0) + 1
+                local offY = (placed[k] - 1) * 14
+                setText('twrOh' .. i, r.modex)
+                setBounds('twrOh' .. i, xy[1], xy[2] + offY, 40, 14)
+            else
+                setText('twrOh' .. i, '')
+                setBounds('twrOh' .. i, -200, -200, 40, 14)
+            end
+        end
     end
 
-    -- ─── MARSHALL CCZ tracker + radio readout ────────────────────────────
+    -- ─── MARSHALL CCZ scatter + radio readout ────────────────────────────
+    -- Scatter view: rowCcz1..12 are positioned by (BRG, NM) around a centre
+    -- at (270, 190) with 60 nm = 110 px radius scale.  Beta6 replaced the
+    -- text list with the scatter — radio readout still uses rowMarCall*.
     local function readCczState()
         local content = slurp(CCZ_FILE_V13)
         local rows = {}
@@ -518,14 +604,22 @@ local function load()
         end
         table.sort(rows, function(a, b) return a.nm < b.nm end)
 
+        -- Position scatter slots: x = cx + nm * pxPerNm * sin(brg), y = cy - nm * pxPerNm * cos(brg)
+        local cx, cy = 270, 190
+        local pxPerNm = 110 / 60
         for i = 1, 12 do
             local r = rows[i]
             if r then
-                setText('rowCcz' .. i, string.format(
-                    '  %-3s    %3d°  %4.1f nm  %5d ft  %3d kt',
-                    r.modex, r.brg, r.nm, r.alt, r.ias))
+                local brgR = math.rad(r.brg)
+                local nmClamp = r.nm
+                if nmClamp > 60 then nmClamp = 60 end
+                local x = math.floor(cx + nmClamp * pxPerNm * math.sin(brgR) - 20)
+                local y = math.floor(cy - nmClamp * pxPerNm * math.cos(brgR) - 8)
+                setText('rowCcz' .. i, r.modex)
+                setBounds('rowCcz' .. i, x, y, 40, 16)
             else
                 setText('rowCcz' .. i, '')
+                setBounds('rowCcz' .. i, -200, -200, 40, 16)
             end
         end
 
@@ -553,38 +647,51 @@ local function load()
         setText('lblMarRadioBase', 'ALT 29.92   BRC ' .. brc .. '   CASE I')
     end
 
-    -- ─── LSO CASE I pattern roster ───────────────────────────────────────
+    -- ─── LSO CASE I pattern visual ───────────────────────────────────────
+    -- v1.3-beta6: aircraft slots (acftPat1..8) get repositioned to the
+    -- landmark coords for whichever pattern point the bridge classified
+    -- them at.  Multiple aircraft at the same point stack vertically.
+    local PATTERN_XY = {
+        INITIAL  = { 350, 230 },
+        BREAK    = { 360,  75 },
+        DOWNWIND = { 145, 135 },
+        ABEAM    = { 145, 165 },
+        ['180']  = { 175, 235 },
+        GROOVE   = { 290, 165 },
+        TRAP     = { 270,  95 },
+    }
     local function readPatternState()
         local content = slurp(PATTERN_FILE_V13)
-        local byPoint = {}
+        local list = {}
         for line in content:gmatch('[^\r\n]+') do
             local modex, alt, ias, _prog, point =
                 line:match('([^|]+)|(%-?%d+)|(%-?%d+)|(%-?[%d%.]+)|([^|]+)')
             if modex then
-                byPoint[point] = byPoint[point] or {}
-                table.insert(byPoint[point], {
-                    modex = modex, alt = tonumber(alt) or 0, ias = tonumber(ias) or 0
+                table.insert(list, {
+                    modex = modex, alt = tonumber(alt) or 0,
+                    ias = tonumber(ias) or 0, point = point
                 })
             end
         end
-        local function rowFor(rowName, label)
-            local list = byPoint[label]
-            if list and #list > 0 then
-                local r = list[1]
-                setText(rowName, string.format(
-                    '  %-10s  %-3s    %5d ft   %3d kt',
-                    label, r.modex, r.alt, r.ias))
+        local placed = {}
+        for i = 1, 8 do
+            local r = list[i]
+            if r then
+                local xy = PATTERN_XY[r.point]
+                if xy then
+                    placed[r.point] = (placed[r.point] or 0) + 1
+                    local offY = (placed[r.point] - 1) * 16
+                    setText('acftPat' .. i, r.modex)
+                    setBounds('acftPat' .. i, xy[1], xy[2] + offY, 40, 14)
+                else
+                    setText('acftPat' .. i, '')
+                    setBounds('acftPat' .. i, -200, -200, 40, 14)
+                end
             else
-                setText(rowName, string.format('  %-10s  —', label))
+                setText('acftPat' .. i, '')
+                setBounds('acftPat' .. i, -200, -200, 40, 14)
             end
         end
-        rowFor('rowPatInit', 'INITIAL')
-        rowFor('rowPatBrk',  'BREAK')
-        rowFor('rowPatDwn',  'DOWNWIND')
-        rowFor('rowPatAbm',  'ABEAM')
-        rowFor('rowPat180',  '180')
-        rowFor('rowPatGrv',  'GROOVE')
-        rowFor('rowPatTrap', 'TRAP')
     end
 
     -- ─── DECKBOSS top-down deck view ─────────────────────────────────────
@@ -619,9 +726,9 @@ local function load()
         end
 
         -- Modex slot positions on the deck silhouette (16 slots).
-        -- Carrier ≈ 330 m long, 75 m wide.  Map:
-        --   along  +160 (bow)  → x=80      along -160 (stern) → x=470
-        --   across -35 (port)  → y=60      across +35 (stbd)  → y=220
+        -- v1.3-beta6: rotated so BOW is at the TOP of the silhouette.
+        --   along  +200 (bow)   → y=70    along -200 (stern) → y=320
+        --   across -50 (port)   → x=145   across +50 (stbd)  → x=395
         for i = 1, 16 do
             local r = rows[i]
             if r then
@@ -631,13 +738,13 @@ local function load()
                 local cc = r.across
                 if cc >  50 then cc =  50 end
                 if cc < -50 then cc = -50 end
-                local x = math.floor(80  + (200 - a)  * (390 / 400))
-                local y = math.floor(60  + (cc + 50)  * (160 / 100))
+                local y = math.floor(70  + (200 - a) * (250 / 400))
+                local x = math.floor(145 + (cc + 50) * (250 / 100))
                 setText('spotDb' .. i, r.modex)
-                setBounds('spotDb' .. i, x, y, 50, 16)
+                setBounds('spotDb' .. i, x, y, 50, 14)
             else
                 setText('spotDb' .. i, '')
-                setBounds('spotDb' .. i, -200, -200, 50, 16)
+                setBounds('spotDb' .. i, -200, -200, 50, 14)
             end
         end
     end
@@ -767,7 +874,7 @@ local function load()
             wireButton(name, flag)
         end
 
-        -- tab buttons (v1.3-beta5: 5 tabs)
+        -- tab buttons (v1.3-beta6: 5 tabs)
         wireClick('btnTabCarrier',  function() showTab('carrier')  end)
         wireClick('btnTabMarshall', function() showTab('marshall') end)
         wireClick('btnTabTower',    function() showTab('tower')    end)
@@ -973,7 +1080,7 @@ local function load()
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v1.3-beta5)')
+    logInfo('hook loaded (v1.3-beta6)')
 end
 
 local ok, err = pcall(load)

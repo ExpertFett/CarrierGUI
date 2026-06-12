@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v1.3-beta7 — full 5-tab UX overhaul)
+-- CarrierGUI Hook  (rebuild v1.3-beta8 — full 5-tab UX overhaul)
 --   CARRIER  — F10 menu controls.  Unchanged.
 --   MARSHALL — NEW. 60nm CCZ tracker + marshal radio readout.
 --   TOWER    — was old MARSHALL.  Now has STACK / CHARLIE'D / COMMENCING
@@ -236,7 +236,7 @@ local function load()
     -- Gotcha #4: setVisible(false) destroys the dialog. We toggle visibility
     -- via the SRS-style pattern: real setVisible(true), then either setSize(0,0)
     -- (= hidden) or restore to full size.
-    local FULL_W, FULL_H = 540, 900   -- v1.3-beta7: bumped for radar overlays
+    local FULL_W, FULL_H = 540, 900   -- v1.3-beta8: bumped for radar overlays
 
     -- Set a value-flag (used to pass numeric params like flight count / minutes
     -- to the bridge before firing the action flag).
@@ -390,15 +390,20 @@ local function load()
     end
 
     local function readShipState()
-        local path = lfs.writedir() .. SHIPSTATE_FILE
-        local ok, content = base.pcall(function()
-            local f = io.open(path, 'r')
-            if not f then return nil end
-            local c = f:read('*a')
-            f:close()
-            return c
-        end)
-        if not ok or not content then return end
+        -- v1.3-beta8: primary source is the mission query (carrier.q.ship);
+        -- the bridge file only exists on desanitized servers.
+        local content = (carrier.q and carrier.q.ship) or ''
+        if content == '' then
+            local ok, c = base.pcall(function()
+                local f = io.open(lfs.writedir() .. SHIPSTATE_FILE, 'r')
+                if not f then return nil end
+                local t = f:read('*a')
+                f:close()
+                return t
+            end)
+            if ok and c then content = c end
+        end
+        if content == '' then return end
         local s = parseShipState(content)
         carrier.shipHdg       = tonumber(s.hdg)
         carrier.shipWindFrom  = tonumber(s.wind_from)
@@ -455,7 +460,232 @@ local function load()
     end
 
     -- =====================================================================
-    -- v1.3: bridge IPC readers — feed TOWER / MARSHALL / LSO / DECKBOSS tabs
+    -- v1.3-beta8: MISSION QUERY — the hook pulls all live data itself via
+    -- net.dostring_in('server', chunk).  Field debugging found DCS's default
+    -- MissionScripting.lua sanitizes io/lfs/os in the mission env, so the
+    -- bridge can NEVER write IPC files on a stock install — every
+    -- bridge→file→hook feature was silently dead.  dostring_in returns the
+    -- data as a string instead: no file I/O in the sanitized env, and the
+    -- radar/roster feeds no longer require a patched mission at all.
+    -- The bridge file-writers remain for desanitized dedicated servers;
+    -- readers below fall back to the files when the query returns nothing.
+    --
+    -- The chunk persists tracking state in the mission env via __CGQ
+    -- (first-seen times, Charlie/commence marks, modex map from
+    -- env.mission onboard_num — the ME "Tail #" field).
+    -- Returns 5 sections joined by '\n@@\n': SHIP / STACK / CCZ / PATTERN / DECK.
+    local CG_QUERY = [==[
+local okQ, resQ = pcall(function()
+    __CGQ = __CGQ or { fs = {}, ln = {}, ch = {}, co = {} }
+    local Q = __CGQ
+    local NM = 1852.0
+
+    -- one-time modex map: unit name -> ME Tail# (onboard_num)
+    if not Q.mx then
+        Q.mx = {}
+        pcall(function()
+            for _, coa in pairs(env.mission.coalition) do
+                if type(coa) == 'table' and coa.country then
+                    for _, ctry in pairs(coa.country) do
+                        for _, cat in pairs({'plane', 'helicopter'}) do
+                            if ctry[cat] and ctry[cat].group then
+                                for _, grp in pairs(ctry[cat].group) do
+                                    for _, un in pairs(grp.units or {}) do
+                                        if un.name and un.onboard_num then
+                                            local nm = env.getValueDictByKey(un.name)
+                                            Q.mx[nm] = tostring(un.onboard_num)
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    end
+
+    local function norm(a) a = a % 360 if a < 0 then a = a + 360 end return a end
+    local function angDelta(a, b) return (a - b + 540) % 360 - 180 end
+
+    -- find first CVN
+    local carrier = nil
+    for _, side in pairs({coalition.side.BLUE, coalition.side.RED, coalition.side.NEUTRAL}) do
+        local groups = coalition.getGroups(side, Group.Category.SHIP)
+        if groups then
+            for _, g in pairs(groups) do
+                if g:isExist() then
+                    for _, u in pairs(g:getUnits() or {}) do
+                        if u:isExist() then
+                            local tn = u:getTypeName() or ''
+                            if tn:find('CVN') or tn:find('Stennis') or tn:find('VINSON') or tn:find('Forrestal') then
+                                carrier = u
+                                break
+                            end
+                        end
+                    end
+                end
+                if carrier then break end
+            end
+        end
+        if carrier then break end
+    end
+    if not carrier then return '\n@@\n\n@@\n\n@@\n\n@@\n' end
+
+    local cp  = carrier:getPoint()
+    local cpx = carrier:getPosition().x
+    -- DCS convention: +x = north, +z = east.  hdg = atan2(east, north).
+    local hdg = norm(math.deg(math.atan2(cpx.z, cpx.x)))
+    local fb  = norm(hdg - 9)   -- CVN angled deck
+
+    -- wind at deck height
+    local shipLines = {}
+    pcall(function()
+        local w = atmosphere.getWind({x = cp.x, y = cp.y + 20, z = cp.z})
+        local wspd = math.sqrt(w.x * w.x + w.z * w.z)
+        local wfrom = norm(math.deg(math.atan2(w.z, w.x)) + 180)
+        local vel = carrier:getVelocity()
+        local relx = w.x - vel.x
+        local relz = w.z - vel.z
+        -- decompose relative wind onto ship axes
+        local fwd = relx * cpx.x + relz * cpx.z
+        local crs = relx * (-cpx.z) + relz * cpx.x
+        shipLines[1] = 'hdg=' .. math.floor(hdg + 0.5)
+        shipLines[2] = 'wind_from=' .. math.floor(wfrom + 0.5)
+        shipLines[3] = 'wind_kts=' .. math.floor(wspd * 1.94384 + 0.5)
+        shipLines[4] = 'head_kts=' .. math.floor(-fwd * 1.94384 + 0.5)
+        shipLines[5] = 'cross_kts=' .. math.floor(crs * 1.94384 + 0.5)
+    end)
+    if not shipLines[1] then shipLines[1] = 'hdg=' .. math.floor(hdg + 0.5) end
+
+    local stack, ccz, pattern, deck = {}, {}, {}, {}
+    local now = timer.getTime()
+    local seen = {}
+
+    for _, side in pairs({coalition.side.BLUE, coalition.side.RED, coalition.side.NEUTRAL}) do
+        local groups = coalition.getGroups(side, Group.Category.AIRPLANE)
+        if groups then
+            for _, g in pairs(groups) do
+                if g:isExist() then
+                    for _, u in pairs(g:getUnits() or {}) do
+                        pcall(function()
+                            if not u:isExist() then return end
+                            local name = u:getName() or ''
+                            local modex = Q.mx[name] or name:match('(%d+)%s*$') or name
+                            if modex == '' then return end
+
+                            local up = u:getPoint()
+                            local dx, dz = up.x - cp.x, up.z - cp.z
+                            local nm  = math.sqrt(dx * dx + dz * dz) / NM
+                            local brg = norm(math.deg(math.atan2(dz, dx)))
+                            local altM = up.y
+                            local altFt = math.floor(altM * 3.28084)
+                            local vel = u:getVelocity()
+                            local ias = math.floor(math.sqrt(vel.x * vel.x + vel.z * vel.z) * 1.94384)
+                            local inAir = u:inAir()
+
+                            seen[modex] = true
+                            if not Q.fs[modex] then Q.fs[modex] = now end
+                            local inT = math.floor(now - Q.fs[modex])
+
+                            local lastNm = Q.ln[modex] or nm
+                            local closing = (nm < lastNm - 0.05)
+                            Q.ln[modex] = nm
+
+                            if (not inAir) and nm < 0.5 then
+                                -- on deck: carrier-frame offset (along nose, across to stbd)
+                                local along  = dx * cpx.x + dz * cpx.z
+                                local across = dx * (-cpx.z) + dz * cpx.x
+                                deck[#deck + 1] = modex .. '|' .. math.floor(along + 0.5) .. '|' .. math.floor(across + 0.5)
+                                return
+                            end
+                            if not inAir then return end
+
+                            -- CASE I pattern point classification
+                            local point = 'enroute'
+                            if nm <= 5 then
+                                local initBrg = norm(fb + 180)
+                                local portBrg = norm(fb + 270)
+                                if nm < 0.8 then point = 'BREAK'
+                                elseif math.abs(angDelta(brg, initBrg)) < 25 and nm > 1 and nm < 4 and altM < 400 then
+                                    point = 'INITIAL'
+                                elseif math.abs(angDelta(brg, portBrg)) < 35 and nm < 3 then
+                                    if altM > 200 and not closing then point = 'DOWNWIND'
+                                    elseif altM > 120 then point = 'ABEAM'
+                                    else point = '180' end
+                                elseif nm < 1.5 and altM < 180 and closing then
+                                    point = 'GROOVE'
+                                else
+                                    point = 'pattern'
+                                end
+                            end
+
+                            -- HOLD / CHARLIE / COMMENCING state machine
+                            local state = 'HOLD'
+                            if Q.co[modex] then state = 'COMMENCING'
+                            elseif altM < 250 and nm < 3 and closing then
+                                Q.co[modex] = true
+                                state = 'COMMENCING'
+                            elseif Q.ch[modex] then state = 'CHARLIE' end
+
+                            if nm < 25 then
+                                stack[#stack + 1] = modex .. '|' .. altFt .. '|' .. ias .. '|' .. inT .. '|' .. point .. '|' .. state
+                            end
+                            if nm < 60 and nm > 8 then
+                                ccz[#ccz + 1] = string.format('%s|%d|%.1f|%d|%d|inbound', modex, math.floor(brg + 0.5), nm, altFt, ias)
+                            end
+                            if nm < 5 then
+                                pattern[#pattern + 1] = modex .. '|' .. altFt .. '|' .. ias .. '|0|' .. point
+                            end
+                        end)
+                    end
+                end
+            end
+        end
+    end
+
+    -- GC stale modexes
+    for m in pairs(Q.fs) do
+        if not seen[m] then Q.fs[m] = nil Q.ln[m] = nil Q.ch[m] = nil Q.co[m] = nil end
+    end
+
+    return table.concat(shipLines, '\n') .. '\n@@\n' ..
+           table.concat(stack, '\n')     .. '\n@@\n' ..
+           table.concat(ccz, '\n')       .. '\n@@\n' ..
+           table.concat(pattern, '\n')   .. '\n@@\n' ..
+           table.concat(deck, '\n')
+end)
+if okQ then return resQ end
+return 'ERR|' .. tostring(resQ)
+]==]
+
+    -- Query results cache, refreshed at 1 Hz by runMissionQuery().
+    carrier.q = { ship = '', stack = '', ccz = '', pattern = '', deck = '' }
+
+    local function runMissionQuery()
+        local ok, res = base.pcall(function()
+            return net.dostring_in('server', CG_QUERY)
+        end)
+        if not ok or type(res) ~= 'string' or res == '' then return end
+        if res:sub(1, 4) == 'ERR|' then
+            logErr('mission query failed: ' .. res:sub(5, 200))
+            return
+        end
+        local parts = {}
+        for s in (res .. '\n@@\n'):gmatch('(.-)\n@@\n') do
+            table.insert(parts, s)
+        end
+        carrier.q.ship    = parts[1] or ''
+        carrier.q.stack   = parts[2] or ''
+        carrier.q.ccz     = parts[3] or ''
+        carrier.q.pattern = parts[4] or ''
+        carrier.q.deck    = parts[5] or ''
+    end
+
+    -- =====================================================================
+    -- v1.3 data readers — feed TOWER / MARSHALL / LSO / DECKBOSS tabs.
+    -- Primary source: the mission query above.  Fallback: bridge-written
+    -- files (only exist on desanitized dedicated servers).
     -- =====================================================================
     local STACK_FILE_V13   = 'carriergui_stack.txt'
     local CCZ_FILE_V13     = 'carriergui_ccz.txt'
@@ -490,14 +720,15 @@ local function load()
     end
 
     -- ─── TOWER stack roster + mini overhead/side radars ──────────────────
-    -- Stack file format includes ALT/IAS/POINT/STATE.  v1.3-beta7 also
+    -- Stack file format includes ALT/IAS/POINT/STATE.  v1.3-beta8 also
     -- positions twrOh* (overhead scatter) and twrSv* (side-view scatter)
     -- using a separate parse that grabs BRG too — bridge writes BRG/NM in
     -- the carriergui_ccz.txt format inside 25 nm.  For now we approximate
     -- overhead position from the LAST PT (since stack.txt doesn't carry
     -- BRG/NM).  TODO: bridge could be extended to write BRG into stack.txt.
     local function readStackState()
-        local content = slurp(STACK_FILE_V13)
+        local content = (carrier.q and carrier.q.stack) or ''
+        if content == '' then content = slurp(STACK_FILE_V13) end
         local hold, charlie, commence = {}, {}, {}
         for line in content:gmatch('[^\r\n]+') do
             local modex, alt, ias, inT, pt, state =
@@ -589,7 +820,8 @@ local function load()
     -- at (270, 190) with 60 nm = 110 px radius scale.  Beta6 replaced the
     -- text list with the scatter — radio readout still uses rowMarCall*.
     local function readCczState()
-        local content = slurp(CCZ_FILE_V13)
+        local content = (carrier.q and carrier.q.ccz) or ''
+        if content == '' then content = slurp(CCZ_FILE_V13) end
         local rows = {}
         for line in content:gmatch('[^\r\n]+') do
             local modex, brg, nm, alt, ias =
@@ -648,7 +880,7 @@ local function load()
     end
 
     -- ─── LSO CASE I pattern visual ───────────────────────────────────────
-    -- v1.3-beta7: aircraft slots (acftPat1..8) get repositioned to the
+    -- v1.3-beta8: aircraft slots (acftPat1..8) get repositioned to the
     -- landmark coords for whichever pattern point the bridge classified
     -- them at.  Multiple aircraft at the same point stack vertically.
     local PATTERN_XY = {
@@ -661,7 +893,8 @@ local function load()
         TRAP     = { 270,  95 },
     }
     local function readPatternState()
-        local content = slurp(PATTERN_FILE_V13)
+        local content = (carrier.q and carrier.q.pattern) or ''
+        if content == '' then content = slurp(PATTERN_FILE_V13) end
         local list = {}
         for line in content:gmatch('[^\r\n]+') do
             local modex, alt, ias, _prog, point =
@@ -696,7 +929,8 @@ local function load()
 
     -- ─── DECKBOSS top-down deck view ─────────────────────────────────────
     local function readDeckState()
-        local content = slurp(DECK_FILE_V13)
+        local content = (carrier.q and carrier.q.deck) or ''
+        if content == '' then content = slurp(DECK_FILE_V13) end
         local rows = {}
         for line in content:gmatch('[^\r\n]+') do
             local modex, along, across = line:match('([^|]+)|(%-?%d+)|(%-?%d+)')
@@ -726,7 +960,7 @@ local function load()
         end
 
         -- Modex slot positions on the deck silhouette (16 slots).
-        -- v1.3-beta7: rotated so BOW is at the TOP of the silhouette.
+        -- v1.3-beta8: rotated so BOW is at the TOP of the silhouette.
         --   along  +200 (bow)   → y=70    along -200 (stern) → y=320
         --   across -50 (port)   → x=145   across +50 (stbd)  → x=395
         for i = 1, 16 do
@@ -806,14 +1040,24 @@ local function load()
         local ok, result = base.pcall(function()
             return net.dostring_in('server', code)
         end)
+        local function setNvgStateText(t)
+            if carrier.window and carrier.window.lblNvgState then
+                base.pcall(function() carrier.window.lblNvgState:setText(t) end)
+            end
+        end
         if ok and tostring(result) == '1' then
             carrier.bridgeStatus = 'ok'
             setStatus('Bridge: online')
+            setNvgStateText('Bridge: online')
             logInfo('bridge probe: present')
         else
             carrier.bridgeStatus = 'missing'
-            setStatus('Mission NOT PATCHED — buttons will not respond.\n' ..
-                     'Run "Patch Mission.bat" on your .miz first.')
+            -- v1.3-beta8: radar/roster data comes from the mission query and
+            -- works unpatched.  Only the BUTTONS (beacons/wind/lights/
+            -- broadcasts) need the embedded bridge.
+            setStatus('Mission NOT PATCHED — control buttons will not respond.\n' ..
+                     'Displays still work. Patch the .miz to enable buttons.')
+            setNvgStateText('Mission not patched (displays OK, buttons dead)')
             logInfo('bridge probe: missing (result=' .. tostring(result) .. ')')
         end
     end
@@ -874,7 +1118,7 @@ local function load()
             wireButton(name, flag)
         end
 
-        -- tab buttons (v1.3-beta7: 5 tabs)
+        -- tab buttons (v1.3-beta8: 5 tabs)
         wireClick('btnTabCarrier',  function() showTab('carrier')  end)
         wireClick('btnTabMarshall', function() showTab('marshall') end)
         wireClick('btnTabTower',    function() showTab('tower')    end)
@@ -1022,6 +1266,13 @@ local function load()
         wireClick('btnCharlieBroadcast', function()
             setFlagValue('cg_charlie_min', carrier.charlieMin)
             fireFlag(201)
+            -- v1.3-beta8: flip every HOLDing aircraft to CHARLIE'D in the
+            -- mission-query state (the query chunk owns the roster state now).
+            base.pcall(function()
+                net.dostring_in('server',
+                    'if __CGQ then for k in pairs(__CGQ.fs) do ' ..
+                    'if not __CGQ.co[k] then __CGQ.ch[k] = true end end end')
+            end)
         end)
 
         -- initial stepper text + default to the carrier tab
@@ -1048,9 +1299,10 @@ local function load()
             base.pcall(probeBridge)
         end
         local now = DCS.getRealTime() or 0
-        -- 1 Hz: ship state + LSO event log + v1.3 IPC files (stack/ccz/pattern/deck)
+        -- 1 Hz: run the mission query, then refresh every data display.
         if (carrier.shipStateReadAt or 0) + 1.0 < now then
             carrier.shipStateReadAt = now
+            base.pcall(runMissionQuery)
             base.pcall(readShipState)
             base.pcall(readLsoEvents)
             base.pcall(readStackState)
@@ -1080,7 +1332,7 @@ local function load()
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v1.3-beta7)')
+    logInfo('hook loaded (v1.3-beta8)')
 end
 
 local ok, err = pcall(load)

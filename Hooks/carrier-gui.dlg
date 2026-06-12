@@ -1,4 +1,4 @@
--- CarrierGUI dialog layout  (v1.3-beta7 — 5-tab skeleton)
+-- CarrierGUI dialog layout  (v1.3-beta8 — 5-tab skeleton)
 -- Loaded by carrier-gui-hook.lua via DialogLoader.spawnDialogFromFile.
 -- The hook wires each btn* child and toggles tab visibility.
 --
@@ -41,7 +41,7 @@ local LabelSkin  = mkLabelSkin("0xfbb941ff", 14)   -- section headers (amber)
 local ValueSkin  = mkLabelSkin("0xffffffff", 16)   -- stepper values (white)
 local CapSkin    = mkLabelSkin("0xccccccff", 13)   -- captions (grey)
 
--- v1.3-beta7: ALL non-base skins declared up front so every tab section can
+-- v1.3-beta8: ALL non-base skins declared up front so every tab section can
 -- reference them (latent forward-ref bug in beta5 made TOWER rows fall back
 -- to LabelSkin silently — that's why the panel "looked like the old version").
 local SubSkin     = mkLabelSkin("0xccccccff", 16)
@@ -64,7 +64,7 @@ local DeckSkin    = mkLabelSkin("0x80c0a0ff", 14)   -- deck zone landmarks (teal
 local DeckHdr     = mkLabelSkin("0x60d088ff", 18)   -- deck zone headers (bright teal)
 local CarrierMark = mkLabelSkin("0xff8040ff", 18)   -- carrier centre dot (amber-red)
 local SpotSkin    = mkLabelSkin("0xffff00ff", 14)   -- modex labels (bright yellow)
-local RadarLbl    = mkLabelSkin("0x808080ff", 12)   -- range/alt scale ticks
+local RadarLbl    = mkLabelSkin("0xb8c8d8ff", 12)   -- range/alt scale ticks
 
 local function btn(text, x, y, w, skin)
     return {
@@ -113,7 +113,7 @@ dialog = {
 local c = dialog.children
 
 -- ---------------------------------------------------------------- TAB BAR ---
--- v1.3-beta7: 5 tabs across the top in a wider (540 px) window.
+-- v1.3-beta8: 5 tabs across the top in a wider (540 px) window.
 -- Each tab = 100 wide, 6 px gap. Total span: 5*100 + 4*6 = 524 < 540-PAD*2.
 c.btnTabCarrier  = btn("CARRIER",  PAD + (100+6)*0, 4, 100)
 c.btnTabMarshall = btn("MARSHALL", PAD + (100+6)*1, 4, 100)
@@ -169,7 +169,7 @@ c.btnWind4h   = btn("4h",   PAD + (wb+4)*5, y, wb)
 c.btnWind8h   = btn("8h",   PAD + (wb+4)*6, y, wb)
 
 -- ================================================================= TOWER TAB ==
--- v1.3-beta7: layout top → bottom:
+-- v1.3-beta8: layout top → bottom:
 --   1. Mini overhead radar (left) + side view (right)  y=30..160
 --   2. STACK / CHARLIE'D / COMMENCING rosters          y=170..580
 --   3. Existing broadcast controls                     y=600..830
@@ -250,7 +250,7 @@ my = my + BTN_H + PAD
 c.btnCharlieBroadcast = btn("Broadcast Charlie", PAD, my, 250)
 
 -- ============================================================== MARSHALL TAB ==
--- v1.3-beta7: 60nm CCZ scatter view (replaces beta5's text list) + radio
+-- v1.3-beta8: 60nm CCZ scatter view (replaces beta5's text list) + radio
 -- readout below.  Scatter area is x=20..520, y=50..330 with the carrier dot
 -- at centre (270, 190).  Range scale: 60 nm = ~140 px.  Hook positions the
 -- modex slot pool (rowCcz1..12 re-purposed as scatter slots) every poll.
@@ -282,7 +282,7 @@ end
 c.lblMarStatus     = lbl("(waiting for inbound traffic...)",           PAD, 630, W - PAD*2, CapSkin, 18)
 
 -- ============================================================= DECKBOSS TAB ==
--- v1.3-beta7: rotated so BOW = top, STERN = bottom, PORT = left, STBD = right
+-- v1.3-beta8: rotated so BOW = top, STERN = bottom, PORT = left, STBD = right
 -- (standard top-down view).  The deck silhouette is painted with box-drawing
 -- character widgets at port/stbd/bow/stern edges — dxgui has no line/rect
 -- primitives so each character is its own Static widget.  Zone labels sit
@@ -294,51 +294,51 @@ c.lblDbHdr      = lbl("DECK VIEW  ·  BOW = top  ·  PORT = left",  PAD, 30, W -
 -- Box-drawing outline.  Each `──` or `│` is one Static widget.
 -- Bow horizontal edge (y=55, x=140..390 every 30px = 9 cells of "──")
 local OutlineSkin = mkLabelSkin("0x6080a0ff", 16)
-c.lblDbBowH1    = lbl("──", 140,  55, 30, OutlineSkin, 16)
-c.lblDbBowH2    = lbl("──", 170,  55, 30, OutlineSkin, 16)
-c.lblDbBowH3    = lbl("──", 200,  55, 30, OutlineSkin, 16)
-c.lblDbBowH4    = lbl("──", 230,  55, 30, OutlineSkin, 16)
-c.lblDbBowH5    = lbl("──", 260,  55, 30, OutlineSkin, 16)
-c.lblDbBowH6    = lbl("──", 290,  55, 30, OutlineSkin, 16)
-c.lblDbBowH7    = lbl("──", 320,  55, 30, OutlineSkin, 16)
-c.lblDbBowH8    = lbl("──", 350,  55, 30, OutlineSkin, 16)
-c.lblDbBowH9    = lbl("──", 380,  55, 30, OutlineSkin, 16)
+c.lblDbBowH1    = lbl("--", 140,  55, 30, OutlineSkin, 16)
+c.lblDbBowH2    = lbl("--", 170,  55, 30, OutlineSkin, 16)
+c.lblDbBowH3    = lbl("--", 200,  55, 30, OutlineSkin, 16)
+c.lblDbBowH4    = lbl("--", 230,  55, 30, OutlineSkin, 16)
+c.lblDbBowH5    = lbl("--", 260,  55, 30, OutlineSkin, 16)
+c.lblDbBowH6    = lbl("--", 290,  55, 30, OutlineSkin, 16)
+c.lblDbBowH7    = lbl("--", 320,  55, 30, OutlineSkin, 16)
+c.lblDbBowH8    = lbl("--", 350,  55, 30, OutlineSkin, 16)
+c.lblDbBowH9    = lbl("--", 380,  55, 30, OutlineSkin, 16)
 -- Port edge (x=130, vertical)
-c.lblDbPortV1   = lbl("│", 130,  70, 12, OutlineSkin, 18)
-c.lblDbPortV2   = lbl("│", 130,  92, 12, OutlineSkin, 18)
-c.lblDbPortV3   = lbl("│", 130, 114, 12, OutlineSkin, 18)
-c.lblDbPortV4   = lbl("│", 130, 136, 12, OutlineSkin, 18)
-c.lblDbPortV5   = lbl("│", 130, 158, 12, OutlineSkin, 18)
-c.lblDbPortV6   = lbl("│", 130, 180, 12, OutlineSkin, 18)
-c.lblDbPortV7   = lbl("│", 130, 202, 12, OutlineSkin, 18)
-c.lblDbPortV8   = lbl("│", 130, 224, 12, OutlineSkin, 18)
-c.lblDbPortV9   = lbl("│", 130, 246, 12, OutlineSkin, 18)
-c.lblDbPortV10  = lbl("│", 130, 268, 12, OutlineSkin, 18)
-c.lblDbPortV11  = lbl("│", 130, 290, 12, OutlineSkin, 18)
-c.lblDbPortV12  = lbl("│", 130, 312, 12, OutlineSkin, 18)
+c.lblDbPortV1   = lbl("|", 130,  70, 12, OutlineSkin, 18)
+c.lblDbPortV2   = lbl("|", 130,  92, 12, OutlineSkin, 18)
+c.lblDbPortV3   = lbl("|", 130, 114, 12, OutlineSkin, 18)
+c.lblDbPortV4   = lbl("|", 130, 136, 12, OutlineSkin, 18)
+c.lblDbPortV5   = lbl("|", 130, 158, 12, OutlineSkin, 18)
+c.lblDbPortV6   = lbl("|", 130, 180, 12, OutlineSkin, 18)
+c.lblDbPortV7   = lbl("|", 130, 202, 12, OutlineSkin, 18)
+c.lblDbPortV8   = lbl("|", 130, 224, 12, OutlineSkin, 18)
+c.lblDbPortV9   = lbl("|", 130, 246, 12, OutlineSkin, 18)
+c.lblDbPortV10  = lbl("|", 130, 268, 12, OutlineSkin, 18)
+c.lblDbPortV11  = lbl("|", 130, 290, 12, OutlineSkin, 18)
+c.lblDbPortV12  = lbl("|", 130, 312, 12, OutlineSkin, 18)
 -- Stbd edge (x=410, vertical)
-c.lblDbStbdV1   = lbl("│", 410,  70, 12, OutlineSkin, 18)
-c.lblDbStbdV2   = lbl("│", 410,  92, 12, OutlineSkin, 18)
-c.lblDbStbdV3   = lbl("│", 410, 114, 12, OutlineSkin, 18)
-c.lblDbStbdV4   = lbl("│", 410, 136, 12, OutlineSkin, 18)
-c.lblDbStbdV5   = lbl("│", 410, 158, 12, OutlineSkin, 18)
-c.lblDbStbdV6   = lbl("│", 410, 180, 12, OutlineSkin, 18)
-c.lblDbStbdV7   = lbl("│", 410, 202, 12, OutlineSkin, 18)
-c.lblDbStbdV8   = lbl("│", 410, 224, 12, OutlineSkin, 18)
-c.lblDbStbdV9   = lbl("│", 410, 246, 12, OutlineSkin, 18)
-c.lblDbStbdV10  = lbl("│", 410, 268, 12, OutlineSkin, 18)
-c.lblDbStbdV11  = lbl("│", 410, 290, 12, OutlineSkin, 18)
-c.lblDbStbdV12  = lbl("│", 410, 312, 12, OutlineSkin, 18)
+c.lblDbStbdV1   = lbl("|", 410,  70, 12, OutlineSkin, 18)
+c.lblDbStbdV2   = lbl("|", 410,  92, 12, OutlineSkin, 18)
+c.lblDbStbdV3   = lbl("|", 410, 114, 12, OutlineSkin, 18)
+c.lblDbStbdV4   = lbl("|", 410, 136, 12, OutlineSkin, 18)
+c.lblDbStbdV5   = lbl("|", 410, 158, 12, OutlineSkin, 18)
+c.lblDbStbdV6   = lbl("|", 410, 180, 12, OutlineSkin, 18)
+c.lblDbStbdV7   = lbl("|", 410, 202, 12, OutlineSkin, 18)
+c.lblDbStbdV8   = lbl("|", 410, 224, 12, OutlineSkin, 18)
+c.lblDbStbdV9   = lbl("|", 410, 246, 12, OutlineSkin, 18)
+c.lblDbStbdV10  = lbl("|", 410, 268, 12, OutlineSkin, 18)
+c.lblDbStbdV11  = lbl("|", 410, 290, 12, OutlineSkin, 18)
+c.lblDbStbdV12  = lbl("|", 410, 312, 12, OutlineSkin, 18)
 -- Stern horizontal edge (y=335)
-c.lblDbStnH1    = lbl("──", 140, 335, 30, OutlineSkin, 16)
-c.lblDbStnH2    = lbl("──", 170, 335, 30, OutlineSkin, 16)
-c.lblDbStnH3    = lbl("──", 200, 335, 30, OutlineSkin, 16)
-c.lblDbStnH4    = lbl("──", 230, 335, 30, OutlineSkin, 16)
-c.lblDbStnH5    = lbl("──", 260, 335, 30, OutlineSkin, 16)
-c.lblDbStnH6    = lbl("──", 290, 335, 30, OutlineSkin, 16)
-c.lblDbStnH7    = lbl("──", 320, 335, 30, OutlineSkin, 16)
-c.lblDbStnH8    = lbl("──", 350, 335, 30, OutlineSkin, 16)
-c.lblDbStnH9    = lbl("──", 380, 335, 30, OutlineSkin, 16)
+c.lblDbStnH1    = lbl("--", 140, 335, 30, OutlineSkin, 16)
+c.lblDbStnH2    = lbl("--", 170, 335, 30, OutlineSkin, 16)
+c.lblDbStnH3    = lbl("--", 200, 335, 30, OutlineSkin, 16)
+c.lblDbStnH4    = lbl("--", 230, 335, 30, OutlineSkin, 16)
+c.lblDbStnH5    = lbl("--", 260, 335, 30, OutlineSkin, 16)
+c.lblDbStnH6    = lbl("--", 290, 335, 30, OutlineSkin, 16)
+c.lblDbStnH7    = lbl("--", 320, 335, 30, OutlineSkin, 16)
+c.lblDbStnH8    = lbl("--", 350, 335, 30, OutlineSkin, 16)
+c.lblDbStnH9    = lbl("--", 380, 335, 30, OutlineSkin, 16)
 
 -- Deck zone labels — BOW at top, STERN at bottom, PORT on left, STBD on right
 c.lblDbBow      = lbl("BOW",        252,  35, 60, DeckSkin, 14)
@@ -389,7 +389,7 @@ c.lblDbCongaHint  = lbl("(path overlay disabled in beta — preview only)",
 --   5. RECOVERY EVENTS — last 3 LSO prompts (CASE III monitor still wired).
 
 -- ── CASE I PATTERN ──────────────────────────────────────────
--- v1.3-beta7: racetrack visual.  Landmark labels at fixed pattern points,
+-- v1.3-beta8: racetrack visual.  Landmark labels at fixed pattern points,
 -- carrier marker at the trap position, aircraft slot pool the hook moves
 -- to each plane's current point.  90° corners at BREAK and at 90→groove.
 c.lblPatHdr      = lbl("CASE I OVERHEAD  ·  port racetrack",  PAD,  30, W - PAD*2, LabelSkin, 18)
@@ -408,28 +408,28 @@ c.lblPatCv       = lbl("CV",        260,  70, 30, CarrierMark, 16)
 -- Racetrack outline — vertical edges in `│`, corners marked with positioned
 -- aircraft slots.  Right vertical (initial → break) on x=400, left (downwind
 -- → 180) on x=140, bottom (180 → 90) on y=260.
-c.lblPatV1   = lbl("│", 400,  60, 12, OutlineSkin, 18)
-c.lblPatV2   = lbl("│", 400,  90, 12, OutlineSkin, 18)
-c.lblPatV3   = lbl("│", 400, 120, 12, OutlineSkin, 18)
-c.lblPatV4   = lbl("│", 400, 150, 12, OutlineSkin, 18)
-c.lblPatV5   = lbl("│", 400, 180, 12, OutlineSkin, 18)
-c.lblPatV6   = lbl("│", 400, 210, 12, OutlineSkin, 18)
-c.lblPatV7   = lbl("│", 140,  60, 12, OutlineSkin, 18)
-c.lblPatV8   = lbl("│", 140,  90, 12, OutlineSkin, 18)
-c.lblPatV9   = lbl("│", 140, 120, 12, OutlineSkin, 18)
-c.lblPatV10  = lbl("│", 140, 150, 12, OutlineSkin, 18)
-c.lblPatV11  = lbl("│", 140, 180, 12, OutlineSkin, 18)
-c.lblPatV12  = lbl("│", 140, 210, 12, OutlineSkin, 18)
-c.lblPatH1   = lbl("──", 150,  55, 30, OutlineSkin, 16)
-c.lblPatH2   = lbl("──", 180,  55, 30, OutlineSkin, 16)
-c.lblPatH3   = lbl("──", 210,  55, 30, OutlineSkin, 16)
-c.lblPatH4   = lbl("──", 240,  55, 30, OutlineSkin, 16)
-c.lblPatH5   = lbl("──", 270,  55, 30, OutlineSkin, 16)
-c.lblPatH6   = lbl("──", 300,  55, 30, OutlineSkin, 16)
-c.lblPatH7   = lbl("──", 150, 260, 30, OutlineSkin, 16)
-c.lblPatH8   = lbl("──", 180, 260, 30, OutlineSkin, 16)
-c.lblPatH9   = lbl("──", 210, 260, 30, OutlineSkin, 16)
-c.lblPatH10  = lbl("──", 240, 260, 30, OutlineSkin, 16)
+c.lblPatV1   = lbl("|", 400,  60, 12, OutlineSkin, 18)
+c.lblPatV2   = lbl("|", 400,  90, 12, OutlineSkin, 18)
+c.lblPatV3   = lbl("|", 400, 120, 12, OutlineSkin, 18)
+c.lblPatV4   = lbl("|", 400, 150, 12, OutlineSkin, 18)
+c.lblPatV5   = lbl("|", 400, 180, 12, OutlineSkin, 18)
+c.lblPatV6   = lbl("|", 400, 210, 12, OutlineSkin, 18)
+c.lblPatV7   = lbl("|", 140,  60, 12, OutlineSkin, 18)
+c.lblPatV8   = lbl("|", 140,  90, 12, OutlineSkin, 18)
+c.lblPatV9   = lbl("|", 140, 120, 12, OutlineSkin, 18)
+c.lblPatV10  = lbl("|", 140, 150, 12, OutlineSkin, 18)
+c.lblPatV11  = lbl("|", 140, 180, 12, OutlineSkin, 18)
+c.lblPatV12  = lbl("|", 140, 210, 12, OutlineSkin, 18)
+c.lblPatH1   = lbl("--", 150,  55, 30, OutlineSkin, 16)
+c.lblPatH2   = lbl("--", 180,  55, 30, OutlineSkin, 16)
+c.lblPatH3   = lbl("--", 210,  55, 30, OutlineSkin, 16)
+c.lblPatH4   = lbl("--", 240,  55, 30, OutlineSkin, 16)
+c.lblPatH5   = lbl("--", 270,  55, 30, OutlineSkin, 16)
+c.lblPatH6   = lbl("--", 300,  55, 30, OutlineSkin, 16)
+c.lblPatH7   = lbl("--", 150, 260, 30, OutlineSkin, 16)
+c.lblPatH8   = lbl("--", 180, 260, 30, OutlineSkin, 16)
+c.lblPatH9   = lbl("--", 210, 260, 30, OutlineSkin, 16)
+c.lblPatH10  = lbl("--", 240, 260, 30, OutlineSkin, 16)
 
 -- Aircraft slot pool — 8 modex labels the hook moves to whichever pattern
 -- point the bridge classified them at.

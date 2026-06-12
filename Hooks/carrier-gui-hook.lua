@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v1.3-beta6 — full 5-tab UX overhaul)
+-- CarrierGUI Hook  (rebuild v1.3-beta7 — full 5-tab UX overhaul)
 --   CARRIER  — F10 menu controls.  Unchanged.
 --   MARSHALL — NEW. 60nm CCZ tracker + marshal radio readout.
 --   TOWER    — was old MARSHALL.  Now has STACK / CHARLIE'D / COMMENCING
@@ -236,7 +236,7 @@ local function load()
     -- Gotcha #4: setVisible(false) destroys the dialog. We toggle visibility
     -- via the SRS-style pattern: real setVisible(true), then either setSize(0,0)
     -- (= hidden) or restore to full size.
-    local FULL_W, FULL_H = 540, 900   -- v1.3-beta6: bumped for radar overlays
+    local FULL_W, FULL_H = 540, 900   -- v1.3-beta7: bumped for radar overlays
 
     -- Set a value-flag (used to pass numeric params like flight count / minutes
     -- to the bridge before firing the action flag).
@@ -490,7 +490,7 @@ local function load()
     end
 
     -- ─── TOWER stack roster + mini overhead/side radars ──────────────────
-    -- Stack file format includes ALT/IAS/POINT/STATE.  v1.3-beta6 also
+    -- Stack file format includes ALT/IAS/POINT/STATE.  v1.3-beta7 also
     -- positions twrOh* (overhead scatter) and twrSv* (side-view scatter)
     -- using a separate parse that grabs BRG too — bridge writes BRG/NM in
     -- the carriergui_ccz.txt format inside 25 nm.  For now we approximate
@@ -648,7 +648,7 @@ local function load()
     end
 
     -- ─── LSO CASE I pattern visual ───────────────────────────────────────
-    -- v1.3-beta6: aircraft slots (acftPat1..8) get repositioned to the
+    -- v1.3-beta7: aircraft slots (acftPat1..8) get repositioned to the
     -- landmark coords for whichever pattern point the bridge classified
     -- them at.  Multiple aircraft at the same point stack vertically.
     local PATTERN_XY = {
@@ -726,7 +726,7 @@ local function load()
         end
 
         -- Modex slot positions on the deck silhouette (16 slots).
-        -- v1.3-beta6: rotated so BOW is at the TOP of the silhouette.
+        -- v1.3-beta7: rotated so BOW is at the TOP of the silhouette.
         --   along  +200 (bow)   → y=70    along -200 (stern) → y=320
         --   across -50 (port)   → x=145   across +50 (stbd)  → x=395
         for i = 1, 16 do
@@ -874,7 +874,7 @@ local function load()
             wireButton(name, flag)
         end
 
-        -- tab buttons (v1.3-beta6: 5 tabs)
+        -- tab buttons (v1.3-beta7: 5 tabs)
         wireClick('btnTabCarrier',  function() showTab('carrier')  end)
         wireClick('btnTabMarshall', function() showTab('marshall') end)
         wireClick('btnTabTower',    function() showTab('tower')    end)
@@ -1080,7 +1080,7 @@ local function load()
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v1.3-beta6)')
+    logInfo('hook loaded (v1.3-beta7)')
 end
 
 local ok, err = pcall(load)

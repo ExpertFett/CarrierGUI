@@ -426,6 +426,21 @@ def patch_miz(miz_path: Path) -> None:
             mission_file.write_bytes(new_src.encode('utf-8'))
             L(f'  mission size after:  {mission_file.stat().st_size} bytes')
 
+            # Stale ME-resource bridge refresh.  If a mission designer ever
+            # added the bridge MANUALLY in the Mission Editor (DO SCRIPT FILE
+            # trigger), the .miz carries a frozen copy of that era's bridge
+            # under l10n/<lang>/carrier-gui-bridge.lua.  At mission start that
+            # trigger fires BEFORE our appended ones, its old bridge sets the
+            # __CARRIER_GUI_BRIDGE_LOADED guard, and our fresh embedded bridge
+            # no-ops.  The old bridge silently wins on every flight.
+            # Fix: overwrite any such resource with the current bridge — then
+            # whichever copy runs first, it's the same current code.
+            bridge_src_bytes = BRIDGE_PATH.read_bytes()
+            for stale in tmpdir.rglob('carrier-gui-bridge.lua'):
+                rel = stale.relative_to(tmpdir)
+                stale.write_bytes(bridge_src_bytes)
+                L(f'  refreshed stale ME-resource bridge: {rel}')
+
             tmp_out = miz_path.with_suffix('.miz.tmp')
             with zipfile.ZipFile(tmp_out, 'w', zipfile.ZIP_DEFLATED) as zout:
                 for root, _dirs, files in os.walk(tmpdir):

@@ -1,8 +1,18 @@
--- CarrierGUI dialog layout  (v1.2-beta5 — same UI as beta4: CARRIER + MARSHALL + LSO)
+-- CarrierGUI dialog layout  (v1.3-beta1 — 5-tab skeleton)
 -- Loaded by carrier-gui-hook.lua via DialogLoader.spawnDialogFromFile.
 -- The hook wires each btn* child and toggles tab visibility.
+--
+-- v1.3 layout: 5 tabs across the top.
+--   CARRIER   — F10 menu controls (lights, beacons, wind) — UNCHANGED in beta1
+--   MARSHALL  — NEW. CCZ 60nm radar + radio readout (placeholder in beta1)
+--   TOWER     — RENAMED from old MARSHALL. CASE / Charlie / stack broadcasts
+--   LSO       — PLAT NVG + camera controls. UNCHANGED in beta1 (overhead
+--               pattern + drop-of-Wire/Deck/Zoom arrives in beta4)
+--   DECKBOSS  — NEW. Top-down deck view (placeholder in beta1)
+--
+-- Panel widened from 380→540 to make room for the radars in later betas.
 
-local W = 380       -- window width
+local W = 540       -- window width  (was 380 in v1.2)
 local H = 640       -- window height (extended in v1.2 for the RECOVERY EVENTS section)
 local BTN_W = 72    -- standard button width
 local BTN_H = 26    -- standard button height
@@ -78,10 +88,13 @@ dialog = {
 local c = dialog.children
 
 -- ---------------------------------------------------------------- TAB BAR ---
--- Three tabs across the top — slightly narrower to fit within 380 px window.
-c.btnTabCarrier  = btn("CARRIER",  PAD,        4, 118)
-c.btnTabMarshall = btn("MARSHALL", PAD + 124,  4, 118)
-c.btnTabLso      = btn("LSO",      PAD + 248,  4, 118)
+-- v1.3-beta1: 5 tabs across the top in a wider (540 px) window.
+-- Each tab = 100 wide, 6 px gap. Total span: 5*100 + 4*6 = 524 < 540-PAD*2.
+c.btnTabCarrier  = btn("CARRIER",  PAD + (100+6)*0, 4, 100)
+c.btnTabMarshall = btn("MARSHALL", PAD + (100+6)*1, 4, 100)
+c.btnTabTower    = btn("TOWER",    PAD + (100+6)*2, 4, 100)
+c.btnTabLso      = btn("LSO",      PAD + (100+6)*3, 4, 100)
+c.btnTabDeckboss = btn("DECKBOSS", PAD + (100+6)*4, 4, 100)
 
 -- =============================================================== CARRIER TAB ==
 local y = 40
@@ -130,9 +143,11 @@ c.btnWind2h   = btn("2h",   PAD + (wb+4)*4, y, wb)
 c.btnWind4h   = btn("4h",   PAD + (wb+4)*5, y, wb)
 c.btnWind8h   = btn("8h",   PAD + (wb+4)*6, y, wb)
 
--- ============================================================== MARSHALL TAB ==
--- Marshall widgets overlap the carrier widgets in Y; only one tab is visible
--- at a time (hook toggles). All start visible; hook hides the inactive tab.
+-- ================================================================= TOWER TAB ==
+-- v1.3-beta1: renamed from MARSHALL. Same widgets, same coords — only the tab
+-- label changes. Widget names keep the "Mar*" prefix to avoid touching the
+-- BUTTON_FLAGS table and the broadcast wiring (which still fires the same
+-- numbered user flags the bridge listens for).
 local my = 40
 c.lblMarCase = lbl("RECOVERY CASE", PAD, my)
 my = my + 22
@@ -161,6 +176,27 @@ c.lblCharlieVal  = lbl("15", PAD + 122, my + 4, 36, ValueSkin)
 c.btnCharlieUp   = btn("+", PAD + 162, my, 40)
 my = my + BTN_H + PAD
 c.btnCharlieBroadcast = btn("Broadcast Charlie", PAD, my, 250)
+
+-- ============================================================== MARSHALL TAB ==
+-- v1.3-beta1: placeholder only. Full content lands in v1.3-beta3:
+--   60nm overhead radar (CCZ) + marshal radio readout (altimeter, BRC,
+--   per-modex BRA + ANGELS + EAT).
+local SubSkin = mkLabelSkin("0xccccccff", 16)
+c.lblMarshallHdr  = lbl("MARSHALL  ·  CCZ TRACKER",                  PAD, 80,  W - PAD*2, LabelSkin, 22)
+c.lblMarshallSub1 = lbl("Coming in v1.3-beta3.",                      PAD, 112, W - PAD*2, SubSkin,   20)
+c.lblMarshallSub2 = lbl("60nm overhead radar  +  marshal radio call.", PAD, 134, W - PAD*2, SubSkin,   20)
+c.lblMarshallSub3 = lbl("Bridge will enumerate friendlies <60nm and",  PAD, 162, W - PAD*2, CapSkin,   18)
+c.lblMarshallSub4 = lbl("write modex / BRA / alt to the IPC channel.", PAD, 180, W - PAD*2, CapSkin,   18)
+
+-- ============================================================= DECKBOSS TAB ==
+-- v1.3-beta1: placeholder only. Full content lands in v1.3-beta5:
+--   Top-down deck silhouette + modex positions + conga-line overlay toggle.
+--   View-only — no game-state writes.
+c.lblDeckbossHdr  = lbl("DECKBOSS  ·  DECK VIEW",                    PAD, 80,  W - PAD*2, LabelSkin, 22)
+c.lblDeckbossSub1 = lbl("Coming in v1.3-beta5.",                      PAD, 112, W - PAD*2, SubSkin,   20)
+c.lblDeckbossSub2 = lbl("Top-down deck silhouette  +  modex layout.", PAD, 134, W - PAD*2, SubSkin,   20)
+c.lblDeckbossSub3 = lbl("Toggle for conga-line taxi-path overlay.",   PAD, 162, W - PAD*2, CapSkin,   18)
+c.lblDeckbossSub4 = lbl("View only  ·  no game-state writes.",        PAD, 180, W - PAD*2, CapSkin,   18)
 
 -- ================================================================= LSO TAB ==
 -- v1.0-beta4: scrapped the image dial — DCS's dxgui picture loader silently

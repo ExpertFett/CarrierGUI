@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CarrierGUI v1.2-beta5 — visual reference</title>
+<style>
+  body { background:#111; color:#ddd; font-family:Segoe UI,Arial,sans-serif; margin:24px; }
+  h1 { font-weight:500; font-size:18px; margin:0 0 4px; }
+  h2 { font-weight:500; font-size:13px; margin:24px 0 8px; color:#aaa; }
+  .meta { color:#888; font-size:12px; margin-bottom:24px; }
+  .row { display:flex; gap:18px; flex-wrap:wrap; }
+  .panel {
+    background:#2b2f2f;
+    color:#e0e0e0;
+    width:380px;
+    border:1px solid #4a4e4e;
+    font-family:Consolas,monospace;
+    font-size:12px;
+    line-height:1.35;
+  }
+  .panel-title {
+    background:#1c1f1f; padding:6px 10px; border-bottom:1px solid #4a4e4e;
+    font-size:13px; font-weight:500; letter-spacing:1px;
+  }
+  .tabs { display:flex; border-bottom:1px solid #4a4e4e; }
+  .tab { flex:1; text-align:center; padding:5px 0; border-right:1px solid #4a4e4e; cursor:default; }
+  .tab:last-child { border-right:none; }
+  .tab.on { background:#3a4040; color:#fff; }
+  .section { padding:8px 10px; border-bottom:1px solid #3a3e3e; }
+  .section h3 { font-size:11px; font-weight:500; color:#9ab; margin:0 0 6px; letter-spacing:1px; }
+  .btnrow { display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; }
+  .btn { border:1px solid #6a6e6e; padding:3px 8px; color:#dcdcdc; background:#383c3c; font-size:11px; }
+  .btn.alt { background:#4a3030; border-color:#a44; }
+  .btn.go  { background:#304a30; border-color:#4a4; }
+  .led { display:inline-block; width:18px; height:10px; background:#384038; border:1px solid #5a5; margin-right:1px; vertical-align:middle; }
+  .led.on { background:#3c7c3c; }
+  .ship { color:#9cc; font-size:11px; }
+  .events { color:#888; font-size:11px; }
+  .legend { color:#777; font-size:11px; max-width:380px; }
+</style>
+</head>
+<body>
+
+<h1>CarrierGUI v1.2-beta5 — visual reference</h1>
+<div class="meta">
+  Captured 2026-06-12. Panel size 380 wide × ~640 tall, three tabs.
+  Default DCS skin: dark gray panel, white text, bordered buttons.
+  Use this as the "old color scheme" baseline when comparing future redesigns.
+</div>
+
+<div class="row">
+
+  <div class="panel">
+    <div class="panel-title">CarrierGUI v1.2-beta5</div>
+    <div class="tabs">
+      <div class="tab on">CARRIER</div>
+      <div class="tab">MARSHALL</div>
+      <div class="tab">LSO</div>
+    </div>
+    <div class="section">
+      <h3>LIGHTS</h3>
+      <div class="btnrow">
+        <span class="btn">OFF</span><span class="btn">AUTO</span><span class="btn">NAV</span>
+        <span class="btn">LAUNCH</span><span class="btn">RECOV</span>
+      </div>
+    </div>
+    <div class="section">
+      <h3>BEACONS</h3>
+      <div class="btnrow"><span class="btn">TACAN ON</span><span class="btn">TACAN OFF</span></div>
+      <div class="btnrow"><span class="btn">ICLS ON</span><span class="btn">ICLS OFF</span></div>
+      <div class="btnrow"><span class="btn">LINK4 ON</span><span class="btn">LINK4 OFF</span></div>
+      <div class="btnrow"><span class="btn">ACLS ON</span><span class="btn">ACLS OFF</span></div>
+    </div>
+    <div class="section">
+      <h3>TURN INTO WIND</h3>
+      <div class="btnrow">
+        <span class="btn">STOP</span><span class="btn">30 min</span><span class="btn">60 min</span>
+        <span class="btn">90 min</span><span class="btn">2 hr</span><span class="btn">4 hr</span>
+      </div>
+    </div>
+    <div class="section ship">HDG ---°   WIND ---@---   WX --kt</div>
+    <div class="section events">Bridge: probing...</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">CarrierGUI v1.2-beta5</div>
+    <div class="tabs">
+      <div class="tab">CARRIER</div>
+      <div class="tab on">MARSHALL</div>
+      <div class="tab">LSO</div>
+    </div>
+    <div class="section">
+      <h3>RECOVERY CASE</h3>
+      <div class="btnrow"><span class="btn">CASE I</span><span class="btn">CASE II</span><span class="btn">CASE III</span></div>
+    </div>
+    <div class="section">
+      <h3>MARSHAL STACK</h3>
+      <div class="btnrow"><span class="btn">COMPUTE + BROADCAST</span></div>
+      <div style="color:#9ab; margin-top:6px;">FB 249  Lo 6,000 ft  Δ 1,000 ft</div>
+    </div>
+    <div class="section">
+      <h3>CHARLIE / PUSH</h3>
+      <div class="btnrow">
+        <span class="btn">+5</span><span class="btn">+10</span><span class="btn">+15</span>
+        <span class="btn">PUSH NOW</span>
+      </div>
+    </div>
+    <div class="section events">Bridge: OK · 1 stack at 6.0k</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">CarrierGUI v1.2-beta5</div>
+    <div class="tabs">
+      <div class="tab">CARRIER</div>
+      <div class="tab">MARSHALL</div>
+      <div class="tab on">LSO</div>
+    </div>
+    <div class="section">
+      <h3>PLAT NVG GAIN  · scroll wheel anywhere on the bar</h3>
+      <div style="margin:4px 0;">
+        <span class="led on"></span><span class="led on"></span><span class="led on"></span>
+        <span class="led on"></span><span class="led on"></span><span class="led"></span>
+        <span class="led"></span><span class="led"></span><span class="led"></span><span class="led"></span>
+        <span style="color:#cf6; margin-left:8px;">50%</span>
+      </div>
+      <div class="btnrow"><span class="btn alt">RESET CAM</span></div>
+    </div>
+    <div class="section">
+      <h3>WIRE TARGET</h3>
+      <div class="btnrow"><span class="btn">1</span><span class="btn">2</span><span class="btn">3</span><span class="btn">4</span></div>
+    </div>
+    <div class="section">
+      <h3>DECK STATUS</h3>
+      <div class="btnrow"><span class="btn alt">FOUL DECK</span><span class="btn go">CLEAR DECK</span></div>
+    </div>
+    <div class="section">
+      <h3>PLAT ZOOM</h3>
+      <div class="btnrow"><span class="btn">DEFAULT</span><span class="btn">MED</span><span class="btn">TIGHT</span><span class="btn">TELE</span></div>
+    </div>
+    <div class="section">
+      <h3>LSO CALLS</h3>
+      <div class="btnrow"><span class="btn alt">WAVE OFF</span><span class="btn go">CUT</span></div>
+      <div class="btnrow" style="margin-top:4px;"><span class="btn">BINGO</span><span class="btn">RECOVERY OK</span></div>
+    </div>
+    <div class="section ship">SHIP   HDG 069°   WIND 16@027   WX 18kt</div>
+    <div class="section events">
+      <div>RECOVERY EVENTS</div>
+      <div>00:14  203  PLATFORM 10nm</div>
+      <div>00:21  203  COMM/ICLS  6nm</div>
+    </div>
+  </div>
+
+</div>
+
+<h2>Notes</h2>
+<div class="legend">
+  Section dividers are 1px #3a3e3e. Section labels are #9ab (muted blue-gray), uppercase, ~11px.
+  Buttons are flat #383c3c rectangles with 1px #6a6e6e border. Alert buttons (WAVE OFF, RESET CAM,
+  FOUL DECK) are tinted red; affirm buttons (CUT, CLEAR DECK) are tinted green. The bottom of every
+  tab has a ship-status strip and an event/bridge-status strip in a muted color so they don't compete
+  with the controls above. This is the look we'd port the v1.3 5-tab layout into if we want to keep
+  the existing visual continuity.
+</div>
+
+</body>
+</html>

@@ -1,4 +1,7 @@
--- CarrierGUI Hook  (rebuild v1.2-beta5 — first real installer (.exe wizard))
+-- CarrierGUI Hook  (rebuild v1.3-beta1 — 5-tab skeleton)
+--   New tabs: MARSHALL (CCZ tracker, beta3), DECKBOSS (deck view, beta5).
+--   Old MARSHALL renamed TOWER; its content is unchanged from v1.2-beta5.
+--   Panel widened from 380→540 to make room for radars/grids in later betas.
 -- ============================================================================
 -- Loads the carrier-gui.dlg dialog and toggles it with Ctrl+Shift+c.
 -- Each button fires a numbered user flag via net.dostring_in("server", ...).
@@ -112,11 +115,20 @@ local function load()
         'btnAclsOn','btnAclsOff','lblWind','btnWindStop','btnWind30m','btnWind60m',
         'btnWind90m','btnWind2h','btnWind4h','btnWind8h',
     }
-    local MARSHALL_WIDGETS = {
+    -- v1.3-beta1: TOWER is the old MARSHALL tab — same widgets, renamed bucket.
+    -- The new MARSHALL tab (CCZ tracker) is a separate bucket below.
+    local TOWER_WIDGETS = {
         'lblMarCase','btnCase1','btnCase2','btnCase3','lblMarStack','lblFlightsCap',
         'btnFlightsDown','lblFlightsVal','btnFlightsUp','btnMarshalBroadcast',
         'lblMarCharlie','lblCharlieCap','btnCharlieDown','lblCharlieVal',
         'btnCharlieUp','btnCharlieBroadcast',
+    }
+    -- v1.3-beta1: placeholders only. Real content lands in beta3 / beta5.
+    local MARSHALL_WIDGETS = {
+        'lblMarshallHdr','lblMarshallSub1','lblMarshallSub2','lblMarshallSub3','lblMarshallSub4',
+    }
+    local DECKBOSS_WIDGETS = {
+        'lblDeckbossHdr','lblDeckbossSub1','lblDeckbossSub2','lblDeckbossSub3','lblDeckbossSub4',
     }
     local LSO_WIDGETS = {
         'lblLsoNvg', 'btnResetCam', 'lblNvgVal',
@@ -165,7 +177,7 @@ local function load()
     -- Gotcha #4: setVisible(false) destroys the dialog. We toggle visibility
     -- via the SRS-style pattern: real setVisible(true), then either setSize(0,0)
     -- (= hidden) or restore to full size.
-    local FULL_W, FULL_H = 380, 640   -- v1.2: taller to fit RECOVERY EVENTS
+    local FULL_W, FULL_H = 540, 640   -- v1.3-beta1: wider to fit radars/grids
 
     -- Set a value-flag (used to pass numeric params like flight count / minutes
     -- to the bridge before firing the action flag).
@@ -205,10 +217,14 @@ local function load()
         carrier.tab = tab
         local carrierVis  = (tab == 'carrier')
         local marshallVis = (tab == 'marshall')
+        local towerVis    = (tab == 'tower')
         local lsoVis      = (tab == 'lso')
+        local deckbossVis = (tab == 'deckboss')
         for _, n in base.ipairs(CARRIER_WIDGETS)  do setWidgetVisible(n, carrierVis)  end
         for _, n in base.ipairs(MARSHALL_WIDGETS) do setWidgetVisible(n, marshallVis) end
+        for _, n in base.ipairs(TOWER_WIDGETS)    do setWidgetVisible(n, towerVis)    end
         for _, n in base.ipairs(LSO_WIDGETS)      do setWidgetVisible(n, lsoVis)      end
+        for _, n in base.ipairs(DECKBOSS_WIDGETS) do setWidgetVisible(n, deckbossVis) end
         logInfo('tab -> ' .. tab)
     end
 
@@ -501,10 +517,12 @@ local function load()
             wireButton(name, flag)
         end
 
-        -- tab buttons
+        -- tab buttons (v1.3-beta1: 5 tabs)
         wireClick('btnTabCarrier',  function() showTab('carrier')  end)
         wireClick('btnTabMarshall', function() showTab('marshall') end)
+        wireClick('btnTabTower',    function() showTab('tower')    end)
         wireClick('btnTabLso',      function() showTab('lso')      end)
+        wireClick('btnTabDeckboss', function() showTab('deckboss') end)
 
         -- LSO tab: NVG gain bar gauge
         local function setNvgGain(pct)
@@ -718,7 +736,7 @@ local function load()
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v1.2-beta5)')
+    logInfo('hook loaded (v1.3-beta1)')
 end
 
 local ok, err = pcall(load)

@@ -1,5 +1,5 @@
 ================================================================
- CarrierGUI v1.2-beta5   ***  BETA — TEST BUILD  ***
+ CarrierGUI v1.3-beta1   ***  BETA — TEST BUILD  ***
  In-DCS Supercarrier control & LSO panel — VR-friendly
 ================================================================
 
@@ -59,7 +59,7 @@ inside DCS so it works in VR.
 ----------------------------------------------------------------
 
   1. Close DCS World if it's running.
-  2. Run  CarrierGUI-Setup-v1.2-beta5.exe
+  2. Run  CarrierGUI-Setup-v1.3-beta1.exe
   3. Wizard walks you through it. Keep defaults unless you know
      better. Next → Next → Install → Finish.
   4. Last wizard page has a checkbox:
@@ -80,7 +80,7 @@ time via Apps & Features → CarrierGUI.
 
 ALTERNATIVE — zip distribution (for users who'd rather extract
 manually):
-  - Extract CarrierGUI-v1.2-beta5.zip somewhere.
+  - Extract CarrierGUI-v1.3-beta1.zip somewhere.
   - Run Install.bat inside the extracted folder.
   - Same end result as the .exe installer.
 
@@ -102,6 +102,29 @@ re-patch refreshes the embedded bridge — so when CarrierGUI gets
 a new release, re-patch your missions to pick up the new bridge.
 
 To undo: drag the .miz onto Patcher\Revert Mission.bat.
+
+----------------------------------------------------------------
+ WHAT'S NEW vs v1.2-beta5
+----------------------------------------------------------------
+
+  v1.3-beta1 is a SKELETON BETA. It widens the panel from 380→540
+  px, adds two new tabs (MARSHALL and DECKBOSS), and renames the
+  old MARSHALL tab to TOWER. The new tabs are empty placeholders
+  in this beta — full content lands in subsequent betas:
+
+    beta2  → TOWER stack roster (STACK / CHARLIE'D / COMMENCING)
+    beta3  → MARSHALL CCZ radar (60nm) + radio readout
+    beta4  → LSO overhead CASE I pattern radar
+             (drops the WIRE / DECK / ZOOM / BINGO / RECOV-OK buttons)
+    beta5  → DECKBOSS top-down deck view + conga overlay
+    v1.3   → polish + release
+
+  Everything from v1.2-beta5 still works in beta1: CARRIER tab is
+  unchanged, the TOWER tab has the same buttons as the old MARSHALL
+  tab (CASE I/II/III broadcasts, stack/Charlie broadcasts), and
+  the LSO tab still has the NVG bar + Wire/Deck/Zoom/Lights. The
+  Wire/Deck/Zoom buttons get retired in beta4 since they don't do
+  what we hoped in-game.
 
 ----------------------------------------------------------------
  WHAT'S NEW vs v0.9
@@ -201,7 +224,7 @@ First DCS launch after LSO\Enable-LsoTools.ps1 is very slow:
  VERSION / SUPPORT
 ----------------------------------------------------------------
 
-CarrierGUI v1.2-beta5 — personal project, free to share within
+CarrierGUI v1.3-beta1 — personal project, free to share within
 DCS squadrons. Not affiliated with Eagle Dynamics or Supercarrier.
 
 Stable fallback: v0.9 release (NVG bar only, no LSO tools).

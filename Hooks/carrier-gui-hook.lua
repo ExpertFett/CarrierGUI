@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v1.3-beta8 — full 5-tab UX overhaul)
+-- CarrierGUI Hook  (rebuild v1.3-beta9 — full 5-tab UX overhaul)
 --   CARRIER  — F10 menu controls.  Unchanged.
 --   MARSHALL — NEW. 60nm CCZ tracker + marshal radio readout.
 --   TOWER    — was old MARSHALL.  Now has STACK / CHARLIE'D / COMMENCING
@@ -210,6 +210,35 @@ local function load()
         'lblNvgState',
     }
 
+    -- v1.3-beta9: register the drawn-scope widgets (solid fills, rings,
+    -- lines, arcs) with their tabs so they hide on tab switch.  Stale beta8
+    -- names still present in the literal lists above are harmless —
+    -- setWidgetVisible no-ops on missing children.  c.bgPanel (the whole-
+    -- panel dark backdrop) is deliberately in NO list: always visible.
+    local function addAll(list, names)
+        for _, n in base.ipairs(names) do table.insert(list, n) end
+    end
+    addAll(MARSHALL_WIDGETS, {
+        'mScope','mBordT','mBordB','mBordL','mBordR','mAxisH','mAxisV','mShip'})
+    for i = 1, 12 do table.insert(MARSHALL_WIDGETS, 'mRingA' .. i) end
+    for i = 1, 16 do table.insert(MARSHALL_WIDGETS, 'mRingB' .. i) end
+    for i = 1, 20 do table.insert(MARSHALL_WIDGETS, 'mRingC' .. i) end
+    addAll(TOWER_WIDGETS, {
+        'tScopeL','tBordLT','tBordLB','tBordLL','tBordLR','tAxH','tAxV','tShip',
+        'tScopeR','tBordRT','tBordRB','tBordRL','tBordRR',
+        'tGrid1','tGrid2','tGrid3','tGrid4','tGrid5'})
+    for i = 1, 10 do table.insert(TOWER_WIDGETS, 'tRingA' .. i) end
+    for i = 1, 14 do table.insert(TOWER_WIDGETS, 'tRingB' .. i) end
+    addAll(LSO_WIDGETS, {
+        'pScope','pBordT','pBordB','pBordL','pBordR',
+        'pLegR','pLegT','pLegL','pLegB','pShip',
+        'pArcTL1','pArcTL2','pArcTL3','pArcTL4',
+        'pArcBL1','pArcBL2','pArcBL3','pArcBL4'})
+    addAll(DECKBOSS_WIDGETS, {
+        'dbDeck','dbStrip','dbEdgeT','dbEdgeB','dbEdgeL','dbEdgeR',
+        'dbCat1','dbCat2','dbCat3','dbCat4','dbIslandF',
+        'dbEl1','dbEl2','dbEl3','dbEl4'})
+
     -- Skins for the LED bar segments. setSkin(table) on a Static accepts a
     -- table in this shape. LIT = bright NVG green, DIM = near-black so the
     -- unlit cells fade into the panel background.
@@ -236,7 +265,7 @@ local function load()
     -- Gotcha #4: setVisible(false) destroys the dialog. We toggle visibility
     -- via the SRS-style pattern: real setVisible(true), then either setSize(0,0)
     -- (= hidden) or restore to full size.
-    local FULL_W, FULL_H = 540, 900   -- v1.3-beta8: bumped for radar overlays
+    local FULL_W, FULL_H = 540, 900   -- v1.3-beta9: bumped for radar overlays
 
     -- Set a value-flag (used to pass numeric params like flight count / minutes
     -- to the bridge before firing the action flag).
@@ -390,7 +419,7 @@ local function load()
     end
 
     local function readShipState()
-        -- v1.3-beta8: primary source is the mission query (carrier.q.ship);
+        -- v1.3-beta9: primary source is the mission query (carrier.q.ship);
         -- the bridge file only exists on desanitized servers.
         local content = (carrier.q and carrier.q.ship) or ''
         if content == '' then
@@ -460,7 +489,7 @@ local function load()
     end
 
     -- =====================================================================
-    -- v1.3-beta8: MISSION QUERY — the hook pulls all live data itself via
+    -- v1.3-beta9: MISSION QUERY — the hook pulls all live data itself via
     -- net.dostring_in('server', chunk).  Field debugging found DCS's default
     -- MissionScripting.lua sanitizes io/lfs/os in the mission env, so the
     -- bridge can NEVER write IPC files on a stock install — every
@@ -720,7 +749,7 @@ return 'ERR|' .. tostring(resQ)
     end
 
     -- ─── TOWER stack roster + mini overhead/side radars ──────────────────
-    -- Stack file format includes ALT/IAS/POINT/STATE.  v1.3-beta8 also
+    -- Stack file format includes ALT/IAS/POINT/STATE.  v1.3-beta9 also
     -- positions twrOh* (overhead scatter) and twrSv* (side-view scatter)
     -- using a separate parse that grabs BRG too — bridge writes BRG/NM in
     -- the carriergui_ccz.txt format inside 25 nm.  For now we approximate
@@ -762,8 +791,7 @@ return 'ERR|' .. tostring(resQ)
         fillRows(commence, 'rowTwrComm',    5)
 
         -- Side-view scatter: x slot by index, y by altitude.
-        -- 15k → y=50, 0 → y=170.  Spread x left-to-right at 16-px intervals
-        -- starting at x=325 (just right of the alt-axis labels).
+        -- v1.3-beta9: mapped onto the drawn gridlines — 15k → y=56, 0 → y=152.
         local allAir = {}
         for _, r in base.ipairs(hold)     do table.insert(allAir, r) end
         for _, r in base.ipairs(charlie)  do table.insert(allAir, r) end
@@ -774,8 +802,8 @@ return 'ERR|' .. tostring(resQ)
                 local altClamped = r.alt
                 if altClamped > 15000 then altClamped = 15000 end
                 if altClamped < 0     then altClamped = 0 end
-                local y = math.floor(50 + (15000 - altClamped) * (120 / 15000))
-                local x = 325 + ((i - 1) % 6) * 30
+                local y = math.floor(56 + (15000 - altClamped) * (96 / 15000))
+                local x = 330 + ((i - 1) % 6) * 30
                 setText('twrSv' .. i, r.modex)
                 setBounds('twrSv' .. i, x, y, 40, 14)
             else
@@ -785,17 +813,17 @@ return 'ERR|' .. tostring(resQ)
         end
 
         -- Overhead scatter — stack.txt has no BRG so we approximate from
-        -- LAST PT: each pattern point gets a sketch x/y around carrier (cx=130, cy=100).
+        -- LAST PT: sketch x/y around the drawn scope centre (130, 103).
         local ohXYByPoint = {
-            INITIAL  = { 165, 165 },   -- south of ship (down-right)
-            BREAK    = { 130,  85 },   -- at ship, top
-            DOWNWIND = {  80,  90 },   -- port-side mid (left)
-            ABEAM    = {  80, 110 },
-            ['180']  = {  85, 145 },
-            GROOVE   = { 115, 110 },
-            TRAP     = { 130, 100 },
-            enroute  = { 200, 160 },   -- off-radar (corner)
-            pattern  = { 100, 130 },
+            INITIAL  = { 160, 148 },
+            BREAK    = { 130,  88 },
+            DOWNWIND = {  80,  90 },
+            ABEAM    = {  80, 112 },
+            ['180']  = {  85, 140 },
+            GROOVE   = { 112, 110 },
+            TRAP     = { 132, 100 },
+            enroute  = { 205, 150 },   -- off-pattern (corner)
+            pattern  = { 100, 128 },
         }
         local placed = {}
         for i = 1, 10 do
@@ -880,17 +908,19 @@ return 'ERR|' .. tostring(resQ)
     end
 
     -- ─── LSO CASE I pattern visual ───────────────────────────────────────
-    -- v1.3-beta8: aircraft slots (acftPat1..8) get repositioned to the
+    -- v1.3-beta9: aircraft slots (acftPat1..8) get repositioned to the
     -- landmark coords for whichever pattern point the bridge classified
     -- them at.  Multiple aircraft at the same point stack vertically.
+    -- v1.3-beta9: coordinates sit ON the drawn racetrack (legs at x=140/400,
+    -- y=55/260; ship at the top of the right leg).
     local PATTERN_XY = {
-        INITIAL  = { 350, 230 },
-        BREAK    = { 360,  75 },
-        DOWNWIND = { 145, 135 },
-        ABEAM    = { 145, 165 },
-        ['180']  = { 175, 235 },
-        GROOVE   = { 290, 165 },
-        TRAP     = { 270,  95 },
+        INITIAL  = { 355, 220 },
+        BREAK    = { 355,  62 },
+        DOWNWIND = { 148, 105 },
+        ABEAM    = { 148, 158 },
+        ['180']  = { 150, 222 },
+        GROOVE   = { 305, 150 },
+        TRAP     = { 358,  85 },
     }
     local function readPatternState()
         local content = (carrier.q and carrier.q.pattern) or ''
@@ -960,7 +990,7 @@ return 'ERR|' .. tostring(resQ)
         end
 
         -- Modex slot positions on the deck silhouette (16 slots).
-        -- v1.3-beta8: rotated so BOW is at the TOP of the silhouette.
+        -- v1.3-beta9: rotated so BOW is at the TOP of the silhouette.
         --   along  +200 (bow)   → y=70    along -200 (stern) → y=320
         --   across -50 (port)   → x=145   across +50 (stbd)  → x=395
         for i = 1, 16 do
@@ -1052,7 +1082,7 @@ return 'ERR|' .. tostring(resQ)
             logInfo('bridge probe: present')
         else
             carrier.bridgeStatus = 'missing'
-            -- v1.3-beta8: radar/roster data comes from the mission query and
+            -- v1.3-beta9: radar/roster data comes from the mission query and
             -- works unpatched.  Only the BUTTONS (beacons/wind/lights/
             -- broadcasts) need the embedded bridge.
             setStatus('Mission NOT PATCHED — control buttons will not respond.\n' ..
@@ -1118,7 +1148,7 @@ return 'ERR|' .. tostring(resQ)
             wireButton(name, flag)
         end
 
-        -- tab buttons (v1.3-beta8: 5 tabs)
+        -- tab buttons (v1.3-beta9: 5 tabs)
         wireClick('btnTabCarrier',  function() showTab('carrier')  end)
         wireClick('btnTabMarshall', function() showTab('marshall') end)
         wireClick('btnTabTower',    function() showTab('tower')    end)
@@ -1266,7 +1296,7 @@ return 'ERR|' .. tostring(resQ)
         wireClick('btnCharlieBroadcast', function()
             setFlagValue('cg_charlie_min', carrier.charlieMin)
             fireFlag(201)
-            -- v1.3-beta8: flip every HOLDing aircraft to CHARLIE'D in the
+            -- v1.3-beta9: flip every HOLDing aircraft to CHARLIE'D in the
             -- mission-query state (the query chunk owns the roster state now).
             base.pcall(function()
                 net.dostring_in('server',
@@ -1299,6 +1329,17 @@ return 'ERR|' .. tostring(resQ)
             base.pcall(probeBridge)
         end
         local now = DCS.getRealTime() or 0
+        -- One-shot NVG bar re-apply ~2s after creation: the initial setSkin
+        -- during createWindow can get stomped by DialogLoader finishing up,
+        -- which left all 10 LEDs in their .dlg default (lit green) at OFF.
+        if carrier.windowCreated and not carrier.nvgReapplied then
+            if not carrier.nvgReapplyAt then
+                carrier.nvgReapplyAt = now + 2
+            elseif now > carrier.nvgReapplyAt then
+                carrier.nvgReapplied = true
+                base.pcall(updateNvgDisplay)
+            end
+        end
         -- 1 Hz: run the mission query, then refresh every data display.
         if (carrier.shipStateReadAt or 0) + 1.0 < now then
             carrier.shipStateReadAt = now
@@ -1332,7 +1373,7 @@ return 'ERR|' .. tostring(resQ)
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v1.3-beta8)')
+    logInfo('hook loaded (v1.3-beta9)')
 end
 
 local ok, err = pcall(load)

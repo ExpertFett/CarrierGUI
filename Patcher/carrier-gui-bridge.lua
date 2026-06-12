@@ -624,6 +624,223 @@ end
 local _trimCounter = 0
 
 -- ============================================================================
+-- v1.3: Aircraft enumeration (TOWER stack / MARSHALL CCZ / LSO pattern / DECK)
+-- ============================================================================
+-- Each poll we walk every friendly aircraft once and write up to four IPC
+-- files the hook reads on its own ~1Hz tick.  Line format per file:
+--
+--   carriergui_stack.txt    modex|altFt|ias|inStackSec|lastPoint|state
+--   carriergui_ccz.txt      modex|brg|nm|altFt|ias|inbound
+--   carriergui_pattern.txt  modex|altFt|ias|patternProgress|point
+--   carriergui_deck.txt     modex|alongM|acrossM
+--
+-- All four files are rewritten in full each poll — the hook never has to
+-- diff or merge.  Empty file = no aircraft in that category.
+
+local STACK_FILE_V13   = 'carriergui_stack.txt'
+local CCZ_FILE_V13     = 'carriergui_ccz.txt'
+local PATTERN_FILE_V13 = 'carriergui_pattern.txt'
+local DECK_FILE_V13    = 'carriergui_deck.txt'
+
+local _firstSeen = {}   -- modex -> timer.getTime() when first detected airborne
+local _lastNm    = {}   -- modex -> prior-poll range, for closing detection
+local _charlied  = {}   -- modex -> true if Tower has Charlie'd them
+local _commenced = {}   -- modex -> true once they've crossed the commence threshold
+
+local function getModex(unit)
+    local n = unit:getName() or ''
+    -- Try DCS Unit:getProperty('Tail#') (newer DCS feature; may fail silently)
+    local ok, tail = pcall(function() return unit:getProperty('Tail#') end)
+    if ok and tail and tail ~= '' then
+        return tostring(tail)
+    end
+    -- Fallback: trailing digits of unit name (e.g. 'Hornet-203' -> '203')
+    local m = n:match('(%d+)%s*$')
+    if m then return m end
+    return n
+end
+
+-- CASE I pattern point classifier — returns a short uppercase token.
+local function classifyPoint(carrier, brg, nm, altM, isClosing)
+    if nm > 5 then return 'enroute' end
+    local fb = carrierFinalBearing(carrier)
+    -- INITIAL: ~3 nm aft of ship on BRC, descending toward break
+    local initBrg = (fb + 180) % 360
+    if math.abs(angDelta(brg, initBrg)) < 25 and nm > 1 and nm < 4 and altM < 400 then
+        return 'INITIAL'
+    end
+    -- BREAK: overhead the ship
+    if nm < 0.8 then return 'BREAK' end
+    -- Port side of ship, 90° left of BRC: downwind/abeam/180
+    local portBrg = (fb + 270) % 360
+    if math.abs(angDelta(brg, portBrg)) < 35 and nm < 3 then
+        if altM > 200 and not isClosing then return 'DOWNWIND' end
+        if altM > 120 then return 'ABEAM' end
+        return '180'
+    end
+    -- GROOVE: lined up with angled deck on short final
+    if nm < 1.5 and altM < 180 and isClosing then return 'GROOVE' end
+    return 'pattern'
+end
+
+local function classifyState(modex, altM, nm, isClosing)
+    if _commenced[modex] then return 'COMMENCING' end
+    -- Auto-promote: very low + close + closing = past commence point
+    if altM < 250 and nm < 3 and isClosing then
+        _commenced[modex] = true
+        return 'COMMENCING'
+    end
+    if _charlied[modex] then return 'CHARLIE' end
+    return 'HOLD'
+end
+
+local function writeBuf(name, lines)
+    local path = lfs.writedir() .. name
+    pcall(function()
+        local f = io.open(path, 'w')
+        if f then
+            f:write(table.concat(lines, '\n'))
+            f:close()
+        end
+    end)
+end
+
+-- Carrier-relative offset (along the ship's nose, across to starboard) in m.
+-- Used for the DECKBOSS top-down view.  Returns nil if the carrier has no
+-- pose data (cpPos.x missing — shouldn't happen on a CVN).
+local function carrierFrameOffset(carrier, unitPoint)
+    local cp = carrier.unit:getPoint()
+    local cpPos = carrier.unit:getPosition()
+    if not (cp and cpPos and cpPos.x) then return nil, nil end
+    local dx = unitPoint.x - cp.x
+    local dz = unitPoint.z - cp.z
+    local fwd_x, fwd_z = cpPos.x.x, cpPos.x.z
+    -- Unit forward vector dot product → along axis (positive = ahead of nose)
+    local along  = dx * fwd_x + dz * fwd_z
+    -- Right-perpendicular dot product → across axis (positive = to starboard)
+    local across = dx * (-fwd_z) + dz * fwd_x
+    return along, across
+end
+
+local function processAircraft(carrier, unit, now, stack, ccz, pattern, deck, seen)
+    if not unit:isExist() then return end
+    local ok, nm, brg, altM = pcall(relativePos, carrier, unit)
+    if not ok or not nm then return end
+
+    local modex = getModex(unit)
+    if modex == '' then return end
+    seen[modex] = true
+    if not _firstSeen[modex] then _firstSeen[modex] = now end
+    local inTime = math.floor(now - _firstSeen[modex])
+
+    local altFt = math.floor(altM * 3.28084)
+    local vOk, vel = pcall(function() return unit:getVelocity() end)
+    local ias = 0
+    if vOk and vel then
+        ias = math.floor(math.sqrt((vel.x or 0)^2 + (vel.z or 0)^2) * 1.94384)
+    end
+
+    local lastNm = _lastNm[modex] or nm
+    local isClosing = (nm < lastNm - 0.05)
+    _lastNm[modex] = nm
+
+    -- Air vs deck: low + close + not airborne == on deck
+    local airOk, inAir = pcall(function() return unit:inAir() end)
+    inAir = (airOk and inAir)
+    local onDeck = (not inAir) and (altM < 50) and (nm < 0.5)
+
+    if onDeck then
+        local along, across = carrierFrameOffset(carrier, unit:getPoint())
+        if along then
+            table.insert(deck, string.format('%s|%d|%d',
+                modex, math.floor(along + 0.5), math.floor(across + 0.5)))
+        end
+        return
+    end
+    if not inAir then return end
+
+    local point = classifyPoint(carrier, brg, nm, altM, isClosing)
+    local state = classifyState(modex, altM, nm, isClosing)
+
+    if nm < 25 then
+        table.insert(stack, string.format('%s|%d|%d|%d|%s|%s',
+            modex, altFt, ias, inTime, point, state))
+    end
+    if nm < 60 and nm > 8 then
+        table.insert(ccz, string.format('%s|%d|%.1f|%d|%d|inbound',
+            modex, math.floor(brg + 0.5), nm, altFt, ias))
+    end
+    if nm < 5 then
+        local progByPoint = {
+            INITIAL  = 0.10,
+            BREAK    = 0.22,
+            DOWNWIND = 0.45,
+            ABEAM    = 0.60,
+            ['180']  = 0.75,
+            GROOVE   = 0.92,
+        }
+        local prog = progByPoint[point] or 0
+        table.insert(pattern, string.format('%s|%d|%d|%.2f|%s',
+            modex, altFt, ias, prog, point))
+    end
+end
+
+local function enumerateAndWrite(carriers)
+    if #carriers == 0 then
+        writeBuf(STACK_FILE_V13, {})
+        writeBuf(CCZ_FILE_V13, {})
+        writeBuf(PATTERN_FILE_V13, {})
+        writeBuf(DECK_FILE_V13, {})
+        return
+    end
+    local carrier = firstCvn(carriers) or carriers[1]
+    if not carrier then return end
+
+    local stack, ccz, pattern, deck = {}, {}, {}, {}
+    local now = timer.getTime()
+    local seen = {}
+
+    for _, side in pairs({coalition.side.BLUE, coalition.side.RED, coalition.side.NEUTRAL}) do
+        local groups = coalition.getGroups(side, Group.Category.AIRPLANE)
+        if groups then
+            for _, group in pairs(groups) do
+                if group:isExist() then
+                    for _, unit in pairs(group:getUnits() or {}) do
+                        pcall(processAircraft, carrier, unit, now, stack, ccz, pattern, deck, seen)
+                    end
+                end
+            end
+        end
+    end
+
+    -- GC modexes we no longer see (despawned, despawned to deck, etc.)
+    for modex in pairs(_firstSeen) do
+        if not seen[modex] then
+            _firstSeen[modex] = nil
+            _lastNm[modex]    = nil
+            _charlied[modex]  = nil
+            _commenced[modex] = nil
+        end
+    end
+
+    writeBuf(STACK_FILE_V13, stack)
+    writeBuf(CCZ_FILE_V13, ccz)
+    writeBuf(PATTERN_FILE_V13, pattern)
+    writeBuf(DECK_FILE_V13, deck)
+end
+
+-- When Tower presses the Charlie broadcast button (flag 201), every aircraft
+-- currently HOLDing transitions to CHARLIE — they stay CHARLIE'd until they
+-- self-auto-promote to COMMENCING by crossing the low+close+closing threshold.
+local function markAllCharlied()
+    for modex, _ in pairs(_firstSeen) do
+        if not _commenced[modex] then
+            _charlied[modex] = true
+        end
+    end
+end
+
+-- ============================================================================
 -- Flag dispatch table
 -- ============================================================================
 -- For wind: durationMin (nil = stop). For beacons: kind + on/off.
@@ -710,6 +927,7 @@ local function poll()
     if trigger.misc.getUserFlag('201') == 1 then
         trigger.action.setUserFlag('201', false)
         pcall(broadcastCharlie, carriers)
+        pcall(markAllCharlied)   -- v1.3: also flip every HOLD aircraft to CHARLIE'd
     end
     if trigger.misc.getUserFlag('202') == 1 then
         trigger.action.setUserFlag('202', false)
@@ -757,6 +975,10 @@ local function poll()
     -- Recovery monitor: watch inbound aircraft for CASE III milestones,
     -- write events to the LSO log file the hook tails.
     pcall(runRecoveryMonitor, carriers)
+
+    -- v1.3: enumerate every friendly aircraft once and write the four IPC
+    -- files the hook reads (stack / ccz / pattern / deck).
+    pcall(enumerateAndWrite, carriers)
     _trimCounter = (_trimCounter or 0) + 1
     if _trimCounter >= 30 then
         _trimCounter = 0
@@ -771,4 +993,4 @@ end
 -- ============================================================================
 buildBeaconCache()
 timer.scheduleFunction(poll, {}, timer.getTime() + POLL_INTERVAL)
-say('Bridge online (v1.3-beta1) — auto-discovering carriers', 6)
+say('Bridge online (v1.3-beta5) — auto-discovering carriers', 6)

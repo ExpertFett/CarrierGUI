@@ -1,7 +1,13 @@
--- CarrierGUI Hook  (rebuild v1.3-beta1 — 5-tab skeleton)
---   New tabs: MARSHALL (CCZ tracker, beta3), DECKBOSS (deck view, beta5).
---   Old MARSHALL renamed TOWER; its content is unchanged from v1.2-beta5.
---   Panel widened from 380→540 to make room for radars/grids in later betas.
+-- CarrierGUI Hook  (rebuild v1.3-beta5 — full 5-tab UX overhaul)
+--   CARRIER  — F10 menu controls.  Unchanged.
+--   MARSHALL — NEW. 60nm CCZ tracker + marshal radio readout.
+--   TOWER    — was old MARSHALL.  Now has STACK / CHARLIE'D / COMMENCING
+--              roster sections fed by the bridge enumeration.
+--   LSO      — Rebuilt.  CASE I pattern roster + WAVE OFF / CUT lights +
+--              NVG bar + RESET CAM.  Wire/Deck/Zoom/Bingo/RecovOK retired.
+--   DECKBOSS — NEW.  Top-down deck silhouette + modex positions +
+--              conga-line toggle (view-only).
+-- Panel: 540 × 800.
 -- ============================================================================
 -- Loads the carrier-gui.dlg dialog and toggles it with Ctrl+Shift+c.
 -- Each button fires a numbered user flag via net.dostring_in("server", ...).
@@ -99,11 +105,9 @@ local function load()
         btnCase1          = 202,
         btnCase2          = 203,
         btnCase3          = 204,
-        -- LSO calls (Tier 1 broadcasts only)
+        -- LSO calls (v1.3: WAVE OFF + CUT only; Bingo/RecovOK retired)
         btnWaveOff        = 210,
         btnCut            = 211,
-        btnBingo          = 212,
-        btnRecComp        = 213,
     }
 
     -- Which dialog children belong to which tab (for show/hide). The two tab
@@ -115,39 +119,70 @@ local function load()
         'btnAclsOn','btnAclsOff','lblWind','btnWindStop','btnWind30m','btnWind60m',
         'btnWind90m','btnWind2h','btnWind4h','btnWind8h',
     }
-    -- v1.3-beta1: TOWER is the old MARSHALL tab — same widgets, renamed bucket.
-    -- The new MARSHALL tab (CCZ tracker) is a separate bucket below.
+    -- TOWER tab (renamed from MARSHALL in beta1).  Now also owns three
+    -- roster sections (STACK / CHARLIE'D / COMMENCING) above the existing
+    -- broadcast buttons.
     local TOWER_WIDGETS = {
+        -- STACK roster
+        'lblTwrStackHdr','lblTwrStackCols',
+        'rowTwrStack1','rowTwrStack2','rowTwrStack3','rowTwrStack4',
+        'rowTwrStack5','rowTwrStack6','rowTwrStack7','rowTwrStack8',
+        -- CHARLIE'D roster
+        'lblTwrCharlieHdr','lblTwrCharlieCols',
+        'rowTwrCharlie1','rowTwrCharlie2','rowTwrCharlie3','rowTwrCharlie4','rowTwrCharlie5',
+        -- COMMENCING roster
+        'lblTwrCommHdr','lblTwrCommCols',
+        'rowTwrComm1','rowTwrComm2','rowTwrComm3','rowTwrComm4','rowTwrComm5',
+        -- Existing broadcast buttons (CASE / stack / Charlie)
         'lblMarCase','btnCase1','btnCase2','btnCase3','lblMarStack','lblFlightsCap',
         'btnFlightsDown','lblFlightsVal','btnFlightsUp','btnMarshalBroadcast',
         'lblMarCharlie','lblCharlieCap','btnCharlieDown','lblCharlieVal',
         'btnCharlieUp','btnCharlieBroadcast',
     }
-    -- v1.3-beta1: placeholders only. Real content lands in beta3 / beta5.
+    -- MARSHALL tab: 60nm CCZ tracker + radio readout.
     local MARSHALL_WIDGETS = {
-        'lblMarshallHdr','lblMarshallSub1','lblMarshallSub2','lblMarshallSub3','lblMarshallSub4',
+        'lblMarshallHdr','lblMarshallCols',
+        'rowCcz1','rowCcz2','rowCcz3','rowCcz4','rowCcz5','rowCcz6',
+        'rowCcz7','rowCcz8','rowCcz9','rowCcz10','rowCcz11','rowCcz12',
+        'lblMarRadioHdr','lblMarRadioBase','lblMarRadioCols',
+        'rowMarCall1','rowMarCall2','rowMarCall3','rowMarCall4','rowMarCall5','rowMarCall6',
+        'rowMarCall7','rowMarCall8','rowMarCall9','rowMarCall10','rowMarCall11','rowMarCall12',
+        'lblMarStatus',
     }
+    -- DECKBOSS tab: top-down deck view (labels + modex slot pool).
     local DECKBOSS_WIDGETS = {
-        'lblDeckbossHdr','lblDeckbossSub1','lblDeckbossSub2','lblDeckbossSub3','lblDeckbossSub4',
+        'lblDbHdr',
+        -- Deck zone landmarks
+        'lblDbBow','lblDbCat1','lblDbCat2','lblDbCat3','lblDbCat4',
+        'lblDbIsland','lblDb6pk','lblDbWaist',
+        'lblDbElev1','lblDbElev2','lblDbElev3','lblDbElev4',
+        'lblDbJunk','lblDbStern',
+        -- Aircraft slot pool (hook moves visible ones around)
+        'spotDb1','spotDb2','spotDb3','spotDb4','spotDb5','spotDb6','spotDb7','spotDb8',
+        'spotDb9','spotDb10','spotDb11','spotDb12','spotDb13','spotDb14','spotDb15','spotDb16',
+        -- On-deck list
+        'lblDbOnDeckHdr','lblDbOnDeckCols',
+        'rowDbOnDeck1','rowDbOnDeck2','rowDbOnDeck3','rowDbOnDeck4','rowDbOnDeck5',
+        'rowDbOnDeck6','rowDbOnDeck7','rowDbOnDeck8','rowDbOnDeck9','rowDbOnDeck10',
+        -- Conga toggle
+        'lblDbCongaState','btnDbConga','lblDbCongaHint',
     }
+    -- LSO tab: pattern roster + lights + PLAT cam (NVG / RESET CAM kept;
+    -- Wire / Deck / Zoom / Bingo / RecovOK retired).
     local LSO_WIDGETS = {
+        -- CASE I pattern roster
+        'lblPatHdr','lblPatCols',
+        'rowPatInit','rowPatBrk','rowPatDwn','rowPatAbm','rowPat180','rowPatGrv','rowPatTrap',
+        -- LSO lights
+        'lblLightsHdr','btnWaveOff','btnCut',
+        -- PLAT camera (NVG bar + RESET CAM only)
         'lblLsoNvg', 'btnResetCam', 'lblNvgVal',
         'ledNvg1','ledNvg2','ledNvg3','ledNvg4','ledNvg5',
         'ledNvg6','ledNvg7','ledNvg8','ledNvg9','ledNvg10',
         'lblTick0','lblTick50','lblTick100',
-        -- WIRE TARGET
-        'lblWireHdr', 'btnWire1','btnWire2','btnWire3','btnWire4',
-        -- DECK STATUS
-        'lblDeckHdr', 'btnFoulDeck','btnClearDeck',
-        -- PLAT ZOOM
-        'lblZoomHdr', 'lblZoomCap', 'btnZoomDown','lblZoomVal','btnZoomUp',
-        -- LSO CALLS
-        'lblCallsHdr', 'btnWaveOff','btnCut','btnBingo','btnRecComp',
-        -- SHIP STATUS (live readout)
+        -- SHIP + EVENTS readout
         'lblShipHdr', 'lblShipHdg', 'lblShipWind',
-        -- RECOVERY EVENTS (last 3 LSO prompts from bridge monitor)
         'lblEventsHdr', 'lblEvent1', 'lblEvent2', 'lblEvent3',
-        -- status
         'lblNvgState',
     }
 
@@ -177,7 +212,7 @@ local function load()
     -- Gotcha #4: setVisible(false) destroys the dialog. We toggle visibility
     -- via the SRS-style pattern: real setVisible(true), then either setSize(0,0)
     -- (= hidden) or restore to full size.
-    local FULL_W, FULL_H = 540, 640   -- v1.3-beta1: wider to fit radars/grids
+    local FULL_W, FULL_H = 540, 800   -- v1.3: 540×800 to fit roster sections
 
     -- Set a value-flag (used to pass numeric params like flight count / minutes
     -- to the bridge before firing the action flag).
@@ -312,36 +347,11 @@ local function load()
         writeStateFile(ZOOM_FILE, tostring(lvl.fov))
     end
 
-    local function updateLsoDisplay()
-        if not carrier.window then return end
-
-        -- WIRE buttons: highlight the selected one (re-skin)
-        for i = 1, 4 do
-            local b = carrier.window['btnWire' .. i]
-            if b then
-                local skin = (i == carrier.desiredWire) and LED_SKIN_LIT or LED_SKIN_DIM
-                base.pcall(function() b:setSkin(skin) end)
-            end
-        end
-
-        -- DECK buttons: lit = currently-active state
-        if carrier.window.btnFoulDeck then
-            base.pcall(function()
-                carrier.window.btnFoulDeck:setSkin(carrier.foulDeck and LED_SKIN_LIT or LED_SKIN_DIM)
-            end)
-        end
-        if carrier.window.btnClearDeck then
-            base.pcall(function()
-                carrier.window.btnClearDeck:setSkin((not carrier.foulDeck) and LED_SKIN_LIT or LED_SKIN_DIM)
-            end)
-        end
-
-        -- ZOOM value text
-        if carrier.window.lblZoomVal then
-            local lvl = ZOOM_LEVELS[carrier.platZoom] or ZOOM_LEVELS[0]
-            base.pcall(function() carrier.window.lblZoomVal:setText(lvl.label) end)
-        end
-    end
+    -- v1.3: WIRE / DECK / ZOOM buttons were retired (they didn't reliably
+    -- drive in-game state).  This function is a no-op kept so the few
+    -- legacy call sites (RESET CAM, initial setup) don't have to be
+    -- surgically edited.
+    local function updateLsoDisplay() end
 
     -- Ship state reader. The bridge writes carriergui_shipstate.txt with
     -- key=value lines every ~1s. The hook reads it on the same cadence and
@@ -419,6 +429,246 @@ local function load()
             if w then base.pcall(function() w:setText(last3[i]) end) end
         end
     end
+
+    -- =====================================================================
+    -- v1.3: bridge IPC readers — feed TOWER / MARSHALL / LSO / DECKBOSS tabs
+    -- =====================================================================
+    local STACK_FILE_V13   = 'carriergui_stack.txt'
+    local CCZ_FILE_V13     = 'carriergui_ccz.txt'
+    local PATTERN_FILE_V13 = 'carriergui_pattern.txt'
+    local DECK_FILE_V13    = 'carriergui_deck.txt'
+
+    local function slurp(name)
+        local path = lfs.writedir() .. name
+        local ok, content = base.pcall(function()
+            local f = io.open(path, 'r')
+            if not f then return '' end
+            local c = f:read('*a')
+            f:close()
+            return c or ''
+        end)
+        if not ok then return '' end
+        return content
+    end
+
+    local function setText(name, text)
+        local w = carrier.window and carrier.window[name]
+        if w then base.pcall(function() w:setText(text) end) end
+    end
+
+    local function setBounds(name, x, y, w, h)
+        local widg = carrier.window and carrier.window[name]
+        if widg then base.pcall(function() widg:setBounds(x, y, w, h) end) end
+    end
+
+    local function fmtTime(sec)
+        return string.format('%02d:%02d', math.floor(sec / 60), sec % 60)
+    end
+
+    -- ─── TOWER stack roster ──────────────────────────────────────────────
+    local function readStackState()
+        local content = slurp(STACK_FILE_V13)
+        local hold, charlie, commence = {}, {}, {}
+        for line in content:gmatch('[^\r\n]+') do
+            local modex, alt, ias, inT, pt, state =
+                line:match('([^|]+)|(%-?%d+)|(%-?%d+)|(%-?%d+)|([^|]+)|([^|]+)')
+            if modex then
+                local r = { modex = modex, alt = tonumber(alt) or 0,
+                            ias = tonumber(ias) or 0, inT = tonumber(inT) or 0,
+                            pt = pt, state = state }
+                if state == 'CHARLIE' then        table.insert(charlie,  r)
+                elseif state == 'COMMENCING' then table.insert(commence, r)
+                else                              table.insert(hold,     r) end
+            end
+        end
+        local byAlt = function(a, b) return a.alt > b.alt end
+        table.sort(hold,     byAlt)
+        table.sort(charlie,  byAlt)
+        table.sort(commence, byAlt)
+
+        local function rowStr(r, i)
+            return string.format('  %d  %-3s   %5d ft  %3d kt  %s   %s',
+                i, r.modex, r.alt, r.ias, fmtTime(r.inT), r.pt)
+        end
+        local function fillRows(rows, prefix, max)
+            for i = 1, max do
+                local r = rows[i]
+                setText(prefix .. i, r and rowStr(r, i) or '')
+            end
+        end
+        fillRows(hold,     'rowTwrStack',   8)
+        fillRows(charlie,  'rowTwrCharlie', 5)
+        fillRows(commence, 'rowTwrComm',    5)
+    end
+
+    -- ─── MARSHALL CCZ tracker + radio readout ────────────────────────────
+    local function readCczState()
+        local content = slurp(CCZ_FILE_V13)
+        local rows = {}
+        for line in content:gmatch('[^\r\n]+') do
+            local modex, brg, nm, alt, ias =
+                line:match('([^|]+)|(%-?%d+)|(%-?[%d%.]+)|(%-?%d+)|(%-?%d+)')
+            if modex then
+                table.insert(rows, {
+                    modex = modex, brg = tonumber(brg) or 0,
+                    nm = tonumber(nm) or 0, alt = tonumber(alt) or 0,
+                    ias = tonumber(ias) or 0
+                })
+            end
+        end
+        table.sort(rows, function(a, b) return a.nm < b.nm end)
+
+        for i = 1, 12 do
+            local r = rows[i]
+            if r then
+                setText('rowCcz' .. i, string.format(
+                    '  %-3s    %3d°  %4.1f nm  %5d ft  %3d kt',
+                    r.modex, r.brg, r.nm, r.alt, r.ias))
+            else
+                setText('rowCcz' .. i, '')
+            end
+        end
+
+        -- Marshal call template: each row pairs the aircraft's BRA with an
+        -- assigned stack altitude (6k + slot×1k) and a placeholder EAT.
+        for i = 1, 12 do
+            local r = rows[i]
+            if r then
+                local angels = 6 + (i - 1)
+                setText('rowMarCall' .. i, string.format(
+                    '  %-3s    %3d°  %4.1f nm   %5d    ANGELS %2d    --',
+                    r.modex, r.brg, r.nm, r.alt, angels))
+            else
+                setText('rowMarCall' .. i, '')
+            end
+        end
+
+        if #rows > 0 then
+            setText('lblMarStatus', tostring(#rows) .. ' aircraft in CCZ')
+        else
+            setText('lblMarStatus', '(waiting for inbound traffic...)')
+        end
+
+        local brc = carrier.shipHdg and (tostring(carrier.shipHdg) .. '°') or '---'
+        setText('lblMarRadioBase', 'ALT 29.92   BRC ' .. brc .. '   CASE I')
+    end
+
+    -- ─── LSO CASE I pattern roster ───────────────────────────────────────
+    local function readPatternState()
+        local content = slurp(PATTERN_FILE_V13)
+        local byPoint = {}
+        for line in content:gmatch('[^\r\n]+') do
+            local modex, alt, ias, _prog, point =
+                line:match('([^|]+)|(%-?%d+)|(%-?%d+)|(%-?[%d%.]+)|([^|]+)')
+            if modex then
+                byPoint[point] = byPoint[point] or {}
+                table.insert(byPoint[point], {
+                    modex = modex, alt = tonumber(alt) or 0, ias = tonumber(ias) or 0
+                })
+            end
+        end
+        local function rowFor(rowName, label)
+            local list = byPoint[label]
+            if list and #list > 0 then
+                local r = list[1]
+                setText(rowName, string.format(
+                    '  %-10s  %-3s    %5d ft   %3d kt',
+                    label, r.modex, r.alt, r.ias))
+            else
+                setText(rowName, string.format('  %-10s  —', label))
+            end
+        end
+        rowFor('rowPatInit', 'INITIAL')
+        rowFor('rowPatBrk',  'BREAK')
+        rowFor('rowPatDwn',  'DOWNWIND')
+        rowFor('rowPatAbm',  'ABEAM')
+        rowFor('rowPat180',  '180')
+        rowFor('rowPatGrv',  'GROOVE')
+        rowFor('rowPatTrap', 'TRAP')
+    end
+
+    -- ─── DECKBOSS top-down deck view ─────────────────────────────────────
+    local function readDeckState()
+        local content = slurp(DECK_FILE_V13)
+        local rows = {}
+        for line in content:gmatch('[^\r\n]+') do
+            local modex, along, across = line:match('([^|]+)|(%-?%d+)|(%-?%d+)')
+            if modex then
+                table.insert(rows, {
+                    modex = modex, along = tonumber(along) or 0,
+                    across = tonumber(across) or 0
+                })
+            end
+        end
+
+        -- ON DECK summary list
+        for i = 1, 10 do
+            local r = rows[i]
+            if r then
+                local zone
+                if r.along > 80      then zone = 'BOW'
+                elseif r.along > -20 then zone = 'WAIST/ISLAND'
+                elseif r.along > -90 then zone = '6-PACK'
+                else                      zone = 'JUNKYARD' end
+                setText('rowDbOnDeck' .. i, string.format(
+                    '  %-3s    %+5d m    %+4d m    %s',
+                    r.modex, r.along, r.across, zone))
+            else
+                setText('rowDbOnDeck' .. i, '')
+            end
+        end
+
+        -- Modex slot positions on the deck silhouette (16 slots).
+        -- Carrier ≈ 330 m long, 75 m wide.  Map:
+        --   along  +160 (bow)  → x=80      along -160 (stern) → x=470
+        --   across -35 (port)  → y=60      across +35 (stbd)  → y=220
+        for i = 1, 16 do
+            local r = rows[i]
+            if r then
+                local a = r.along
+                if a >  200 then a =  200 end
+                if a < -200 then a = -200 end
+                local cc = r.across
+                if cc >  50 then cc =  50 end
+                if cc < -50 then cc = -50 end
+                local x = math.floor(80  + (200 - a)  * (390 / 400))
+                local y = math.floor(60  + (cc + 50)  * (160 / 100))
+                setText('spotDb' .. i, r.modex)
+                setBounds('spotDb' .. i, x, y, 50, 16)
+            else
+                setText('spotDb' .. i, '')
+                setBounds('spotDb' .. i, -200, -200, 50, 16)
+            end
+        end
+    end
+
+    -- ─── LSO lights (WAVE OFF + CUT latch lit for ~5s after press) ───────
+    local lightActiveUntil = { btnWaveOff = 0, btnCut = 0 }
+    local function setLightLit(btnName, lit)
+        local w = carrier.window and carrier.window[btnName]
+        if not w then return end
+        if lit then
+            base.pcall(function() w:setSkin(LED_SKIN_LIT) end)
+        else
+            base.pcall(function() w:setSkin({ params = { name = 'buttonSkin' } }) end)
+        end
+    end
+    local function pulseLight(btnName)
+        lightActiveUntil[btnName] = (DCS.getRealTime() or 0) + 5
+        setLightLit(btnName, true)
+    end
+    local function updateLights()
+        local now = DCS.getRealTime() or 0
+        for name, t in base.pairs(lightActiveUntil) do
+            if t > 0 and now > t then
+                lightActiveUntil[name] = 0
+                setLightLit(name, false)
+            end
+        end
+    end
+
+    -- ─── DECKBOSS conga toggle state ─────────────────────────────────────
+    local congaOn = false
 
     -- ------------------------------------------------------ stepper display ---
     local function updateSteppers()
@@ -517,7 +767,7 @@ local function load()
             wireButton(name, flag)
         end
 
-        -- tab buttons (v1.3-beta1: 5 tabs)
+        -- tab buttons (v1.3-beta5: 5 tabs)
         wireClick('btnTabCarrier',  function() showTab('carrier')  end)
         wireClick('btnTabMarshall', function() showTab('marshall') end)
         wireClick('btnTabTower',    function() showTab('tower')    end)
@@ -590,49 +840,12 @@ local function load()
         writeNvgState()
         updateNvgDisplay()
 
-        -- ────────────── v1.1 LSO additions ──────────────
-
-        -- WIRE TARGET (4 buttons)
-        for i = 1, 4 do
-            local idx = i
-            wireClick('btnWire' .. i, function()
-                carrier.desiredWire = idx
-                writeWireState()
-                updateLsoDisplay()
-                logInfo('desired wire -> ' .. idx)
-            end)
-        end
-
-        -- DECK STATUS — flips foulDeck state AND fires a broadcast flag so the
-        -- bridge announces it on all clients.
-        wireClick('btnFoulDeck', function()
-            carrier.foulDeck = true
-            writeFoulState()
-            fireFlag(214)
-            updateLsoDisplay()
-            logInfo('deck -> FOUL')
-        end)
-        wireClick('btnClearDeck', function()
-            carrier.foulDeck = false
-            writeFoulState()
-            fireFlag(215)
-            updateLsoDisplay()
-            logInfo('deck -> CLEAR')
-        end)
-
-        -- PLAT ZOOM stepper (4 levels)
-        wireClick('btnZoomDown', function()
-            carrier.platZoom = math.max(0, carrier.platZoom - 1)
-            writeZoomState()
-            updateLsoDisplay()
-            logInfo('PLAT zoom -> ' .. carrier.platZoom)
-        end)
-        wireClick('btnZoomUp', function()
-            carrier.platZoom = math.min(3, carrier.platZoom + 1)
-            writeZoomState()
-            updateLsoDisplay()
-            logInfo('PLAT zoom -> ' .. carrier.platZoom)
-        end)
+        -- v1.3: WIRE / DECK / ZOOM button wiring removed — those widgets
+        -- no longer exist in the dialog (the in-game effect was unreliable
+        -- and the UI clutter wasn't worth it).  The IPC files are still
+        -- written from RESET CAM (with default values) so the patched
+        -- PLATCameraUI keeps reading consistent state, but no per-tab
+        -- controls drive them.
 
         -- RESET CAM — one-click revert to vanilla DCS PLAT.
         --   NVG  -> 0% (alpha=0 -> shader lerps to raw texture)
@@ -655,6 +868,24 @@ local function load()
         writeWireState()
         writeZoomState()
         updateLsoDisplay()
+
+        -- v1.3: WAVE OFF + CUT light pulses (5s latched lit after press).
+        -- These wireClick calls compose with the BUTTON_FLAGS auto-wiring
+        -- (which fires user-flags 210/211) — both callbacks run on press.
+        wireClick('btnWaveOff', function() pulseLight('btnWaveOff') end)
+        wireClick('btnCut',     function() pulseLight('btnCut')     end)
+
+        -- v1.3: DECKBOSS conga-line toggle (view-only — no game-state writes).
+        wireClick('btnDbConga', function()
+            congaOn = not congaOn
+            if carrier.window.lblDbCongaState then
+                base.pcall(function()
+                    carrier.window.lblDbCongaState:setText(
+                        'CONGA LINE:  ' .. (congaOn and 'ON' or 'OFF'))
+                end)
+            end
+            logInfo('conga toggle -> ' .. tostring(congaOn))
+        end)
 
         -- marshal stack steppers (1..8 flights)
         wireClick('btnFlightsDown', function()
@@ -709,13 +940,19 @@ local function load()
             carrier.bridgeProbeAt = nil
             base.pcall(probeBridge)
         end
-        -- Read bridge state files (ship state + LSO event log) ~1× per second.
         local now = DCS.getRealTime() or 0
+        -- 1 Hz: ship state + LSO event log + v1.3 IPC files (stack/ccz/pattern/deck)
         if (carrier.shipStateReadAt or 0) + 1.0 < now then
             carrier.shipStateReadAt = now
             base.pcall(readShipState)
             base.pcall(readLsoEvents)
+            base.pcall(readStackState)
+            base.pcall(readCczState)
+            base.pcall(readPatternState)
+            base.pcall(readDeckState)
         end
+        -- Every frame: decay WAVE OFF / CUT light timers (short-lived state).
+        base.pcall(updateLights)
     end
 
     function handler.onMissionLoadEnd()
@@ -736,7 +973,7 @@ local function load()
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v1.3-beta1)')
+    logInfo('hook loaded (v1.3-beta5)')
 end
 
 local ok, err = pcall(load)

@@ -1,4 +1,4 @@
--- CarrierGUI dialog layout  (v1.3-beta1 — 5-tab skeleton)
+-- CarrierGUI dialog layout  (v1.3-beta5 — 5-tab skeleton)
 -- Loaded by carrier-gui-hook.lua via DialogLoader.spawnDialogFromFile.
 -- The hook wires each btn* child and toggles tab visibility.
 --
@@ -13,7 +13,7 @@
 -- Panel widened from 380→540 to make room for the radars in later betas.
 
 local W = 540       -- window width  (was 380 in v1.2)
-local H = 640       -- window height (extended in v1.2 for the RECOVERY EVENTS section)
+local H = 800       -- window height (was 640 in v1.2-beta5; need room for rosters)
 local BTN_W = 72    -- standard button width
 local BTN_H = 26    -- standard button height
 local PAD = 6
@@ -88,7 +88,7 @@ dialog = {
 local c = dialog.children
 
 -- ---------------------------------------------------------------- TAB BAR ---
--- v1.3-beta1: 5 tabs across the top in a wider (540 px) window.
+-- v1.3-beta5: 5 tabs across the top in a wider (540 px) window.
 -- Each tab = 100 wide, 6 px gap. Total span: 5*100 + 4*6 = 524 < 540-PAD*2.
 c.btnTabCarrier  = btn("CARRIER",  PAD + (100+6)*0, 4, 100)
 c.btnTabMarshall = btn("MARSHALL", PAD + (100+6)*1, 4, 100)
@@ -144,11 +144,37 @@ c.btnWind4h   = btn("4h",   PAD + (wb+4)*5, y, wb)
 c.btnWind8h   = btn("8h",   PAD + (wb+4)*6, y, wb)
 
 -- ================================================================= TOWER TAB ==
--- v1.3-beta1: renamed from MARSHALL. Same widgets, same coords — only the tab
--- label changes. Widget names keep the "Mar*" prefix to avoid touching the
--- BUTTON_FLAGS table and the broadcast wiring (which still fires the same
--- numbered user flags the bridge listens for).
-local my = 40
+-- v1.3: full content.
+--   Top half = three roster sections (STACK / CHARLIE'D / COMMENCING) fed by
+--   the bridge's carriergui_stack.txt file.  Each section has a header + a
+--   column-header row + a pool of N row widgets the hook populates.
+--   Bottom half = existing broadcasts (CASE selector + stack/Charlie timers).
+
+-- --- STACK roster (HOLD aircraft, sorted alt-desc) ----------------------------
+c.lblTwrStackHdr  = lbl("STACK  ·  holding",                            PAD,  30, W - PAD*2, LabelSkin, 18)
+c.lblTwrStackCols = lbl("  #  MODEX    ALT     IAS  IN-STK   LAST PT",  PAD,  50, W - PAD*2, CapSkin,   16)
+for i = 1, 8 do
+    c["rowTwrStack" .. i] = lbl("", PAD, 68 + (i-1)*15, W - PAD*2, RowSkinMon, 15)
+end
+
+-- --- CHARLIE'D roster (cleared to commence) ----------------------------------
+c.lblTwrCharlieHdr  = lbl("CHARLIE'D  ·  cleared to commence",            PAD, 200, W - PAD*2, LabelSkin, 18)
+c.lblTwrCharlieCols = lbl("  #  MODEX    ALT     IAS  IN-STK   LAST PT",  PAD, 220, W - PAD*2, CapSkin,   16)
+for i = 1, 5 do
+    c["rowTwrCharlie" .. i] = lbl("", PAD, 238 + (i-1)*15, W - PAD*2, RowSkinMon, 15)
+end
+
+-- --- COMMENCING roster (past commence point) ---------------------------------
+c.lblTwrCommHdr  = lbl("COMMENCING  ·  past commence point",              PAD, 325, W - PAD*2, LabelSkin, 18)
+c.lblTwrCommCols = lbl("  #  MODEX    ALT     IAS  IN-STK   LAST PT",     PAD, 345, W - PAD*2, CapSkin,   16)
+for i = 1, 5 do
+    c["rowTwrComm" .. i] = lbl("", PAD, 363 + (i-1)*15, W - PAD*2, RowSkinMon, 15)
+end
+
+-- --- Existing broadcast controls move down -----------------------------------
+-- Widget names below keep their original "Mar*" prefix so BUTTON_FLAGS and the
+-- broadcast wiring stay untouched.  The y-cursor `my` just starts lower now.
+local my = 450
 c.lblMarCase = lbl("RECOVERY CASE", PAD, my)
 my = my + 22
 c.btnCase1 = btn("CASE I",   PAD + (114+PAD)*0, my, 114)
@@ -178,118 +204,165 @@ my = my + BTN_H + PAD
 c.btnCharlieBroadcast = btn("Broadcast Charlie", PAD, my, 250)
 
 -- ============================================================== MARSHALL TAB ==
--- v1.3-beta1: placeholder only. Full content lands in v1.3-beta3:
---   60nm overhead radar (CCZ) + marshal radio readout (altimeter, BRC,
---   per-modex BRA + ANGELS + EAT).
-local SubSkin = mkLabelSkin("0xccccccff", 16)
-c.lblMarshallHdr  = lbl("MARSHALL  ·  CCZ TRACKER",                  PAD, 80,  W - PAD*2, LabelSkin, 22)
-c.lblMarshallSub1 = lbl("Coming in v1.3-beta3.",                      PAD, 112, W - PAD*2, SubSkin,   20)
-c.lblMarshallSub2 = lbl("60nm overhead radar  +  marshal radio call.", PAD, 134, W - PAD*2, SubSkin,   20)
-c.lblMarshallSub3 = lbl("Bridge will enumerate friendlies <60nm and",  PAD, 162, W - PAD*2, CapSkin,   18)
-c.lblMarshallSub4 = lbl("write modex / BRA / alt to the IPC channel.", PAD, 180, W - PAD*2, CapSkin,   18)
+-- v1.3: 60nm CCZ tracker.  Bridge writes carriergui_ccz.txt every poll with
+-- one line per friendly air in the zone; hook fills the row pool below.
+local SubSkin    = mkLabelSkin("0xccccccff", 16)
+local RowSkin    = mkLabelSkin("0xe0e0e0ff", 14)
+local RowSkinMon = {
+    ["params"] = { ["name"] = "staticSkin", ["textWrapping"] = false },
+    ["states"] = {
+        ["released"] = {
+            [1] = {
+                ["text"] = {
+                    ["color"]      = "0xe0e0e0ff",
+                    ["font"]       = "DejaVuLGCSansMono.ttf",
+                    ["lineHeight"] = 14,
+                },
+            },
+        },
+    },
+}
+
+c.lblMarshallHdr   = lbl("CCZ TRACKER  ·  60 nm",                    PAD,  30, W - PAD*2, LabelSkin, 20)
+c.lblMarshallCols  = lbl("  MODEX   BRG   RNG    ALT    IAS",         PAD,  54, W - PAD*2, CapSkin,   16)
+-- Row pool: 12 inbound aircraft max.  Hook fills name and clears unused rows.
+for i = 1, 12 do
+    c["rowCcz" .. i] = lbl("", PAD, 74 + (i-1)*16, W - PAD*2, RowSkinMon, 16)
+end
+
+-- Radio readout (altimeter, BRC, case, per-modex assignments)
+c.lblMarRadioHdr   = lbl("RADIO READOUT",                            PAD, 282, W - PAD*2, LabelSkin, 20)
+c.lblMarRadioBase  = lbl("ALT --.--   BRC ---°   CASE -",            PAD, 306, W - PAD*2, ValueSkin, 20)
+c.lblMarRadioCols  = lbl("  MODEX   BRA          ALT     ASSIGN  EAT", PAD, 332, W - PAD*2, CapSkin, 16)
+for i = 1, 12 do
+    c["rowMarCall" .. i] = lbl("", PAD, 352 + (i-1)*16, W - PAD*2, RowSkinMon, 16)
+end
+c.lblMarStatus     = lbl("(waiting for inbound traffic...)",           PAD, 552, W - PAD*2, CapSkin, 18)
 
 -- ============================================================= DECKBOSS TAB ==
--- v1.3-beta1: placeholder only. Full content lands in v1.3-beta5:
---   Top-down deck silhouette + modex positions + conga-line overlay toggle.
---   View-only — no game-state writes.
-c.lblDeckbossHdr  = lbl("DECKBOSS  ·  DECK VIEW",                    PAD, 80,  W - PAD*2, LabelSkin, 22)
-c.lblDeckbossSub1 = lbl("Coming in v1.3-beta5.",                      PAD, 112, W - PAD*2, SubSkin,   20)
-c.lblDeckbossSub2 = lbl("Top-down deck silhouette  +  modex layout.", PAD, 134, W - PAD*2, SubSkin,   20)
-c.lblDeckbossSub3 = lbl("Toggle for conga-line taxi-path overlay.",   PAD, 162, W - PAD*2, CapSkin,   18)
-c.lblDeckbossSub4 = lbl("View only  ·  no game-state writes.",        PAD, 180, W - PAD*2, CapSkin,   18)
+-- v1.3: top-down deck view.  dxgui can't draw shapes, so the deck "silhouette"
+-- is painted with labeled landmark widgets at fixed positions (BOW / CATs /
+-- ISLAND / JUNKYARD / etc).  The hook reads carriergui_deck.txt — one line per
+-- aircraft on deck with (along, across) carrier-frame offsets in metres — and
+-- moves a pool of 16 modex slot widgets to the closest deck zone.  View only.
+local DeckSkin = mkLabelSkin("0x80c0a0ff", 14)
+local DeckHdr  = mkLabelSkin("0x60d088ff", 18)
+
+c.lblDbHdr      = lbl("DECK VIEW  ·  CVN top-down  (port = top)", PAD, 30, W - PAD*2, LabelSkin, 18)
+
+-- Deck zone labels — fixed positions roughly matching a Nimitz layout.
+-- Coordinate system: ship-nose is at x=80, stern at x=440.  Port is up.
+c.lblDbBow      = lbl("BOW",         60,  60, 60, DeckSkin, 16)
+c.lblDbCat1     = lbl("CAT 1",      110,  80, 60, DeckHdr,  16)
+c.lblDbCat2     = lbl("CAT 2",      110, 110, 60, DeckHdr,  16)
+c.lblDbCat3     = lbl("CAT 3",      220,  80, 60, DeckHdr,  16)
+c.lblDbCat4     = lbl("CAT 4",      220, 110, 60, DeckHdr,  16)
+c.lblDbIsland   = lbl("[ ISLAND ]", 280, 140, 100, DeckSkin, 18)
+c.lblDb6pk      = lbl("6-PACK",     180, 175, 70, DeckSkin, 16)
+c.lblDbWaist    = lbl("WAIST",       80, 175, 60, DeckSkin, 16)
+c.lblDbElev1    = lbl("EL1",        310, 100, 30, DeckSkin, 14)
+c.lblDbElev2    = lbl("EL2",        390, 110, 30, DeckSkin, 14)
+c.lblDbElev3    = lbl("EL3",        310, 200, 30, DeckSkin, 14)
+c.lblDbElev4    = lbl("EL4",        430, 195, 30, DeckSkin, 14)
+c.lblDbJunk     = lbl("JUNKYARD",   380, 230, 100, DeckHdr,  16)
+c.lblDbStern    = lbl("STERN",      470, 270, 60, DeckSkin, 16)
+
+-- Aircraft modex slot pool (16 max).  Hook moves visible ones into the deck
+-- area, hides unused via setBounds off-screen.
+for i = 1, 16 do
+    c["spotDb" .. i] = lbl("", -200, -200, 60, ValueSkin, 16)
+end
+
+-- ON DECK summary list (one line per aircraft).
+c.lblDbOnDeckHdr  = lbl("ON DECK",                                  PAD, 320, W - PAD*2, LabelSkin, 18)
+c.lblDbOnDeckCols = lbl("  MODEX     ALONG       ACROSS     ZONE",  PAD, 340, W - PAD*2, CapSkin,   16)
+for i = 1, 10 do
+    c["rowDbOnDeck" .. i] = lbl("", PAD, 358 + (i-1)*15, W - PAD*2, RowSkinMon, 15)
+end
+
+-- Conga toggle (visual hint only; v1.3-beta5 just flips a state label so the
+-- user can see the toggle works.  Path overlay drawn later if the layout sticks.)
+c.lblDbCongaState = lbl("CONGA LINE:  OFF", PAD,        540, 200, ValueSkin, 20)
+c.btnDbConga      = btn("TOGGLE CONGA",     PAD + 220,  540, 150)
+c.lblDbCongaHint  = lbl("(path overlay disabled in beta — preview only)",
+                        PAD, 568, W - PAD*2, CapSkin, 16)
 
 -- ================================================================= LSO TAB ==
--- v1.0-beta4: scrapped the image dial — DCS's dxgui picture loader silently
--- rejects every alpha-bearing format we tried (PNG, BMP V4, TGA). Falling
--- back to a clean all-text LED bar gauge using only proven primitives:
--- Static widgets, text colour skins, click + scroll-wheel callbacks.
---
--- Layout:
---   y= 38   "PLAT-CAM NVG GAIN" header
---   y= 78   big OFF/% readout (font 48) — also the mouse-wheel target
---   y=170   row of 10 LED segments, each lit IFF gain >= (i+1)*10
---   y=215   tick labels "0%" / "50%" / "100%" under the bar
---   y=250   state line
---   y=280   help
+-- v1.3: rebuilt.  Layout top → bottom:
+--   1. CASE I PATTERN  — list view, one row per pattern point (INITIAL,
+--      BREAK, DOWNWIND, ABEAM, 180, GROOVE, TRAP).  Each row shows the
+--      modex/alt/spd of whoever the bridge classified at that point.
+--   2. LSO LIGHTS      — big WAVE OFF (red) + CUT (green) buttons.  They
+--      latch lit for ~5s after press (hook-side state + setSkin swap).
+--   3. PLAT CAMERA     — existing NVG bar + RESET CAM (text-block style).
+--      Wire/Deck/Zoom buttons RETIRED in v1.3 (didn't do what we hoped
+--      in-game).  Bingo/RecovOK also retired — kept on hook side as
+--      F10 calls instead.
+--   4. SHIP            — live HDG / wind from bridge.
+--   5. RECOVERY EVENTS — last 3 LSO prompts (CASE III monitor still wired).
 
--- LSO tab is dense. Sections top→bottom:
---   PLAT NVG gain bar (existing v1.0-beta5)
---   WIRE TARGET   — 1/2/3/4 buttons → setDesiredRope
---   DECK STATUS   — FOUL/CLEAR     → setFoulDeck + broadcast
---   PLAT ZOOM     — -/+ stepper    → adjustGate (PLAT FOV)
---   LSO CALLS     — WAVE OFF / CUT / BINGO / RECOVERY broadcasts
---   SHIP STATUS   — live HDG / wind readout (bridge → file → hook)
+-- ── CASE I PATTERN ──────────────────────────────────────────
+c.lblPatHdr   = lbl("CASE I OVERHEAD",                          PAD,  30, W - PAD*2, LabelSkin, 18)
+c.lblPatCols  = lbl("  POINT       MODEX    ALT       SPD",     PAD,  50, W - PAD*2, CapSkin,   16)
+-- One row per pattern point.  Hook fills MODEX / ALT / SPD from
+-- carriergui_pattern.txt and writes "—" when the slot is empty.
+c.rowPatInit  = lbl("  INITIAL     —",                          PAD,  70, W - PAD*2, RowSkinMon, 15)
+c.rowPatBrk   = lbl("  BREAK       —",                          PAD,  86, W - PAD*2, RowSkinMon, 15)
+c.rowPatDwn   = lbl("  DOWNWIND    —",                          PAD, 102, W - PAD*2, RowSkinMon, 15)
+c.rowPatAbm   = lbl("  ABEAM       —",                          PAD, 118, W - PAD*2, RowSkinMon, 15)
+c.rowPat180   = lbl("  180         —",                          PAD, 134, W - PAD*2, RowSkinMon, 15)
+c.rowPatGrv   = lbl("  GROOVE      —",                          PAD, 150, W - PAD*2, RowSkinMon, 15)
+c.rowPatTrap  = lbl("  TRAP        —",                          PAD, 166, W - PAD*2, RowSkinMon, 15)
 
-c.lblLsoNvg = lbl("PLAT NVG GAIN", PAD, 36, 240, LabelSkin, 18)
+-- ── LSO LIGHTS ─────────────────────────────────────────────
+c.lblLightsHdr = lbl("LSO LIGHTS",                              PAD, 195, W - PAD*2, LabelSkin, 18)
+-- WAVE OFF and CUT are oversized (h=60) so they read as actual lights
+-- in VR.  The hook latches their skin to a "lit" colour for ~5s after
+-- press so an LSO across the room can see they fired.
+c.btnWaveOff  = btn("WAVE OFF",  PAD,           220, 250)
+c.btnCut      = btn("CUT",       PAD + 256,     220, 250)
+-- Bump button heights via direct mutation (btn() forces h=BTN_H=26).
+c.btnWaveOff.params.bounds.h = 60
+c.btnCut.params.bounds.h     = 60
 
--- Panic button: one-click revert to vanilla DCS PLAT cam.
--- NVG -> 0%, zoom -> DCS default (no override). Foul/wire untouched.
-c.btnResetCam = btn("RESET CAM", W - PAD - 110, 36, 110)
+-- ── PLAT CAMERA  (NVG + RESET CAM kept; Wire/Deck/Zoom RETIRED) ──
+c.lblLsoNvg   = lbl("PLAT NVG GAIN",                            PAD,  295, 240, LabelSkin, 18)
+c.btnResetCam = btn("RESET CAM",                    W - PAD - 110,  295, 110)
 
 local BigSkin = mkLabelSkin("0xffffffff", 36)
-c.lblNvgVal   = lbl("OFF", 110, 58, 160, BigSkin, 48)
+c.lblNvgVal   = lbl("OFF", 110, 317, 160, BigSkin, 48)
 
 local LedFull = mkLabelSkin("0x60ff80ff", 28)
 local BLK = "\226\150\136"   -- "█" U+2588 via decimal escape
-c.ledNvg1  = lbl(BLK,  41, 112, 28, LedFull, 36)   -- 10%
-c.ledNvg2  = lbl(BLK,  71, 112, 28, LedFull, 36)   -- 20%
-c.ledNvg3  = lbl(BLK, 101, 112, 28, LedFull, 36)   -- 30%
-c.ledNvg4  = lbl(BLK, 131, 112, 28, LedFull, 36)   -- 40%
-c.ledNvg5  = lbl(BLK, 161, 112, 28, LedFull, 36)   -- 50%
-c.ledNvg6  = lbl(BLK, 191, 112, 28, LedFull, 36)   -- 60%
-c.ledNvg7  = lbl(BLK, 221, 112, 28, LedFull, 36)   -- 70%
-c.ledNvg8  = lbl(BLK, 251, 112, 28, LedFull, 36)   -- 80%
-c.ledNvg9  = lbl(BLK, 281, 112, 28, LedFull, 36)   -- 90%
-c.ledNvg10 = lbl(BLK, 311, 112, 28, LedFull, 36)   -- 100%
+c.ledNvg1  = lbl(BLK,  41, 371, 28, LedFull, 36)
+c.ledNvg2  = lbl(BLK,  71, 371, 28, LedFull, 36)
+c.ledNvg3  = lbl(BLK, 101, 371, 28, LedFull, 36)
+c.ledNvg4  = lbl(BLK, 131, 371, 28, LedFull, 36)
+c.ledNvg5  = lbl(BLK, 161, 371, 28, LedFull, 36)
+c.ledNvg6  = lbl(BLK, 191, 371, 28, LedFull, 36)
+c.ledNvg7  = lbl(BLK, 221, 371, 28, LedFull, 36)
+c.ledNvg8  = lbl(BLK, 251, 371, 28, LedFull, 36)
+c.ledNvg9  = lbl(BLK, 281, 371, 28, LedFull, 36)
+c.ledNvg10 = lbl(BLK, 311, 371, 28, LedFull, 36)
 
 local TickSkin = mkLabelSkin("0xa0a0a0ff", 12)
-c.lblTick0   = lbl("0%",     35, 152, 40, TickSkin, 14)
-c.lblTick50  = lbl("50%",   165, 152, 40, TickSkin, 14)
-c.lblTick100 = lbl("100%",  305, 152, 50, TickSkin, 14)
-
--- ── WIRE TARGET ──────────────────────────────────────────
-c.lblWireHdr = lbl("WIRE TARGET", PAD, 175, 240, LabelSkin, 18)
-c.btnWire1   = btn("1", PAD + (78+6)*0, 198, 78)
-c.btnWire2   = btn("2", PAD + (78+6)*1, 198, 78)
-c.btnWire3   = btn("3", PAD + (78+6)*2, 198, 78)
-c.btnWire4   = btn("4", PAD + (78+6)*3, 198, 78)
-
--- ── DECK STATUS ──────────────────────────────────────────
-c.lblDeckHdr = lbl("DECK STATUS", PAD, 235, 240, LabelSkin, 18)
-c.btnFoulDeck  = btn("FOUL DECK",  PAD,        258, 175)
-c.btnClearDeck = btn("CLEAR DECK", PAD + 181,  258, 175)
-
--- ── PLAT ZOOM ────────────────────────────────────────────
-c.lblZoomHdr = lbl("PLAT ZOOM", PAD, 295, 240, LabelSkin, 18)
-local ZoomCap = mkLabelSkin("0xccccccff", 13)
-c.lblZoomCap = lbl("FOV:", PAD, 322, 70, ZoomCap, 18)
-c.btnZoomDown = btn("-", PAD + 76,  318, 40)
-local ZoomVal = mkLabelSkin("0xffffffff", 16)
-c.lblZoomVal  = lbl("WIDE", PAD + 122, 322, 80, ZoomVal, 18)
-c.btnZoomUp   = btn("+", PAD + 210, 318, 40)
-
--- ── LSO CALLS ────────────────────────────────────────────
-c.lblCallsHdr = lbl("LSO CALLS", PAD, 355, 240, LabelSkin, 18)
-c.btnWaveOff  = btn("WAVE OFF",     PAD,        378, 175)
-c.btnCut      = btn("CUT",          PAD + 181,  378, 175)
-c.btnBingo    = btn("BINGO TANKER", PAD,        414, 175)
-c.btnRecComp  = btn("RECOVERY OK",  PAD + 181,  414, 175)
+c.lblTick0   = lbl("0%",     35, 411, 40, TickSkin, 14)
+c.lblTick50  = lbl("50%",   165, 411, 40, TickSkin, 14)
+c.lblTick100 = lbl("100%",  305, 411, 50, TickSkin, 14)
 
 -- ── SHIP STATUS (live readout from the bridge) ────────────
-c.lblShipHdr  = lbl("SHIP",   PAD, 455, 240, LabelSkin, 18)
-c.lblShipHdg  = lbl("HDG: --",                PAD,        478, 170, ValueSkin, 20)
-c.lblShipWind = lbl("Wind: --/-- kts",        PAD + 181,  478, 200, ValueSkin, 20)
+c.lblShipHdr  = lbl("SHIP",                   PAD,        450, 240, LabelSkin, 18)
+c.lblShipHdg  = lbl("HDG: --",                PAD,        472, 170, ValueSkin, 20)
+c.lblShipWind = lbl("Wind: --/-- kts",        PAD + 181,  472, 350, ValueSkin, 20)
 
 -- ── RECOVERY EVENTS — LSO prompt log (3 most recent lines) ─────────
--- Bridge appends to carriergui_lso_events.txt as inbound aircraft cross
--- CASE III milestones (10 / 6 / 3 / 0.75 nm). Hook tails the file.
-c.lblEventsHdr = lbl("RECOVERY EVENTS", PAD, 515, 240, LabelSkin, 18)
+c.lblEventsHdr = lbl("RECOVERY EVENTS",                  PAD, 510, 240, LabelSkin, 18)
 local EventSkin = mkLabelSkin("0xeaeaeaff", 14)
-c.lblEvent1 = lbl("(waiting for inbound aircraft...)", PAD, 540, W - PAD*2, EventSkin, 18)
-c.lblEvent2 = lbl("",                                    PAD, 562, W - PAD*2, EventSkin, 18)
-c.lblEvent3 = lbl("",                                    PAD, 584, W - PAD*2, EventSkin, 18)
+c.lblEvent1 = lbl("(waiting for inbound aircraft...)",   PAD, 535, W - PAD*2, EventSkin, 18)
+c.lblEvent2 = lbl("",                                    PAD, 557, W - PAD*2, EventSkin, 18)
+c.lblEvent3 = lbl("",                                    PAD, 579, W - PAD*2, EventSkin, 18)
 
-c.lblNvgState = lbl("Bridge: probing...", PAD, 612, W - PAD*2, CapSkin, 18)
+c.lblNvgState = lbl("Bridge: probing...",                PAD, 615, W - PAD*2, CapSkin, 18)
 
 -- ============================================================= SHARED STATUS ==
 local StatusSkin = {

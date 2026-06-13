@@ -35,33 +35,30 @@ emit(f'c.mBordL = solidW({SCOPE_X}, {SCOPE_Y}, 1, {SCOPE_H}, SCOPE_RG_SKIN, 3)')
 emit(f'c.mBordR = solidW({SCOPE_X+SCOPE_W}, {SCOPE_Y}, 1, {SCOPE_H}, SCOPE_RG_SKIN, 3)')
 emit('')
 
-# 8 radial spokes (bearing 0/45/.../315; 0 = N = up)
-emit('-- 8 radial spokes')
-for i in range(8):
-    beta = math.radians(i * 45)
-    dx, dy = math.sin(beta), -math.cos(beta)
-    mx, my = CX + (R60/2)*dx, CY + (R60/2)*dy
-    ang = round(math.degrees(math.atan2(dy, dx)), 1)
-    x = round(mx - R60/2)
-    y = round(my - 1)
-    emit(f'c.mSpoke{i+1} = seg({x}, {y}, {R60}, 1, {ang})')
+# clean crosshair (non-rotated solid rects — always render reliably)
+emit('-- crosshair (plain rects, no rotation)')
+emit(f'c.mCrossV = solidW({CX}, {CY-R60}, 1, {2*R60}, SCOPE_LN_SKIN, 2)')
+emit(f'c.mCrossH = solidW({CX-R60}, {CY}, {2*R60}, 1, SCOPE_LN_SKIN, 2)')
 emit('')
 
 def ring(prefix, r, n):
+    # LONG, heavily-overlapping segments.  Short bars (beta11) rendered as
+    # separated tilted dashes; long bars (like the spokes/LSO arc) render as
+    # solid lines.  width = 2.3x chord => ~130% overlap.
     chord = 2*r*math.sin(math.pi/n)
-    w = max(4, round(chord*1.7))   # 70% overlap -> smooth solid ring
+    w = max(8, round(chord*2.3))
     for i in range(n):
         th = 2*math.pi*i/n
         px, py = CX + r*math.cos(th), CY + r*math.sin(th)
         ang = round(math.degrees(th) + 90, 1)
-        emit(f'c.{prefix}{i+1} = seg({round(px-w/2)}, {round(py-1)}, {w}, 2, {ang})')
+        emit(f'c.{prefix}{i+1} = seg({round(px-w/2)}, {round(py-1)}, {w}, 3, {ang})')
 
-emit('-- smooth range rings (overlapping segments)')
-ring('mRingA', R20, 40)
+emit('-- smooth range rings (long overlapping segments, 3 px thick)')
+ring('mRingA', R20, 24)
 emit('')
-ring('mRingB', R40, 56)
+ring('mRingB', R40, 32)
 emit('')
-ring('mRingC', R60, 72)
+ring('mRingC', R60, 40)
 emit('')
 
 # centre + range + cardinal labels
@@ -106,16 +103,16 @@ pr = (PILL_R - PILL_L)//2
 def cap(prefix, ccy, lo, hi, n):
     step = (hi-lo)/n
     chord = 2*pr*math.sin(math.radians(abs(step))/2)
-    w = max(4, round(chord*1.7))
+    w = max(8, round(chord*2.3))
     for i in range(n):
         mid = math.radians(lo + step*(i+0.5))
         px, py = pcx + pr*math.cos(mid), ccy + pr*math.sin(mid)
         ang = round(math.degrees(mid)+90, 1)
-        emit(f'c.{prefix}{i+1} = seg({round(px-w/2)}, {round(py-1)}, {w}, 2, {ang})')
+        emit(f'c.{prefix}{i+1} = seg({round(px-w/2)}, {round(py-1)}, {w}, 3, {ang})')
 emit('-- top cap (semicircle bulging up)')
-cap('sCapT', STK_TOP, 180, 360, 10)
+cap('sCapT', STK_TOP, 180, 360, 7)
 emit('-- bottom cap (semicircle bulging down)')
-cap('sCapB', STK_BOT, 0, 180, 10)
+cap('sCapB', STK_BOT, 0, 180, 7)
 emit('')
 # angels ladder labels on the left, rungs (angels 2..7), aircraft slots
 emit('-- angels ladder (2..7) + aircraft slots (hook places modex by angels)')

@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v1.3-beta13 — full 5-tab UX overhaul)
+-- CarrierGUI Hook  (rebuild v1.3-beta14 — full 5-tab UX overhaul)
 --   CARRIER  — F10 menu controls.  Unchanged.
 --   MARSHALL — NEW. 60nm CCZ tracker + marshal radio readout.
 --   TOWER    — was old MARSHALL.  Now has STACK / CHARLIE'D / COMMENCING
@@ -144,7 +144,7 @@ local function load()
         'lblMarCharlie','lblCharlieCap','btnCharlieDown','lblCharlieVal',
         'btnCharlieUp','btnCharlieBroadcast',
     }
-    -- MARSHALL (beta12): big radar scope + scripted readout + stack racetrack.
+    -- MARSHALL (beta14): dot-ring radar + scripted readout + stack + table.
     local MARSHALL_WIDGETS = {
         'lblMarshallHdr',
         'mScope','mBordT','mBordB','mBordL','mBordR','mDot','mCrossV','mCrossH',
@@ -152,14 +152,18 @@ local function load()
         'rowCcz1','rowCcz2','rowCcz3','rowCcz4','rowCcz5','rowCcz6',
         'rowCcz7','rowCcz8','rowCcz9','rowCcz10','rowCcz11','rowCcz12',
         'lblMarRadioHdr',
-        'lblMarStackHdr','sPillL','sPillR',
+        'lblMarStackHdr','sPillL','sPillR','sPillT','sPillB',
         'lblStkA2','lblStkA3','lblStkA4','lblStkA5','lblStkA6','lblStkA7',
+        'sRung2','sRung3','sRung4','sRung5','sRung6','sRung7',
+        'lblMTblHdr','lblMTblCols',
         'lblMarStatus',
     }
-    for i = 1, 16 do table.insert(MARSHALL_WIDGETS, 'rowMarCall' .. i) end
+    for i = 1,  8 do table.insert(MARSHALL_WIDGETS, 'rowMarCall' .. i) end
     for i = 1, 12 do table.insert(MARSHALL_WIDGETS, 'stkSlot' .. i) end
-    for i = 1,  7 do table.insert(MARSHALL_WIDGETS, 'sCapT' .. i) end
-    for i = 1,  7 do table.insert(MARSHALL_WIDGETS, 'sCapB' .. i) end
+    for i = 1, 14 do table.insert(MARSHALL_WIDGETS, 'mTbl' .. i) end
+    for i = 1,  38 do table.insert(MARSHALL_WIDGETS, 'mDotA' .. i) end
+    for i = 1,  77 do table.insert(MARSHALL_WIDGETS, 'mDotB' .. i) end
+    for i = 1, 116 do table.insert(MARSHALL_WIDGETS, 'mDotC' .. i) end
     -- DECKBOSS: rotated top-down view with box-drawn outline + zone labels +
     -- modex slot pool + ON DECK list + conga toggle.
     local DECKBOSS_WIDGETS = {
@@ -215,7 +219,7 @@ local function load()
         'lblNvgState',
     }
 
-    -- v1.3-beta13: register the drawn-scope widgets (solid fills, rings,
+    -- v1.3-beta14: register the drawn-scope widgets (solid fills, rings,
     -- lines, arcs) with their tabs so they hide on tab switch.  Stale beta8
     -- names still present in the literal lists above are harmless —
     -- setWidgetVisible no-ops on missing children.  c.bgPanel (the whole-
@@ -223,10 +227,6 @@ local function load()
     local function addAll(list, names)
         for _, n in base.ipairs(names) do table.insert(list, n) end
     end
-    -- MARSHALL ring segments (beta12 counts: 24 / 32 / 40, long overlapping)
-    for i = 1, 24 do table.insert(MARSHALL_WIDGETS, 'mRingA' .. i) end
-    for i = 1, 32 do table.insert(MARSHALL_WIDGETS, 'mRingB' .. i) end
-    for i = 1, 40 do table.insert(MARSHALL_WIDGETS, 'mRingC' .. i) end
     addAll(TOWER_WIDGETS, {
         'tScopeL','tBordLT','tBordLB','tBordLL','tBordLR','tAxH','tAxV','tShip',
         'tScopeR','tBordRT','tBordRB','tBordRL','tBordRR',
@@ -270,7 +270,7 @@ local function load()
     -- Gotcha #4: setVisible(false) destroys the dialog. We toggle visibility
     -- via the SRS-style pattern: real setVisible(true), then either setSize(0,0)
     -- (= hidden) or restore to full size.
-    local FULL_W, FULL_H = 540, 900   -- v1.3-beta13: bumped for radar overlays
+    local FULL_W, FULL_H = 540, 900   -- v1.3-beta14: bumped for radar overlays
 
     -- Set a value-flag (used to pass numeric params like flight count / minutes
     -- to the bridge before firing the action flag).
@@ -424,7 +424,7 @@ local function load()
     end
 
     local function readShipState()
-        -- v1.3-beta13: primary source is the mission query (carrier.q.ship);
+        -- v1.3-beta14: primary source is the mission query (carrier.q.ship);
         -- the bridge file only exists on desanitized servers.
         local content = (carrier.q and carrier.q.ship) or ''
         if content == '' then
@@ -496,7 +496,7 @@ local function load()
     end
 
     -- =====================================================================
-    -- v1.3-beta13: MISSION QUERY — the hook pulls all live data itself via
+    -- v1.3-beta14: MISSION QUERY — the hook pulls all live data itself via
     -- net.dostring_in('server', chunk).  Field debugging found DCS's default
     -- MissionScripting.lua sanitizes io/lfs/os in the mission env, so the
     -- bridge can NEVER write IPC files on a stock install — every
@@ -799,7 +799,7 @@ return 'ERR|' .. tostring(resQ)
     end
 
     -- ─── TOWER stack roster + mini overhead/side radars ──────────────────
-    -- Stack file format includes ALT/IAS/POINT/STATE.  v1.3-beta13 also
+    -- Stack file format includes ALT/IAS/POINT/STATE.  v1.3-beta14 also
     -- positions twrOh* (overhead scatter) and twrSv* (side-view scatter)
     -- using a separate parse that grabs BRG too — bridge writes BRG/NM in
     -- the carriergui_ccz.txt format inside 25 nm.  For now we approximate
@@ -810,7 +810,7 @@ return 'ERR|' .. tostring(resQ)
         if content == '' then content = slurp(STACK_FILE_V13) end
         local hold, charlie, commence = {}, {}, {}
         for line in content:gmatch('[^\r\n]+') do
-            -- v1.3-beta13 format adds relE|relN (nm offsets from the stack
+            -- v1.3-beta14 format adds relE|relN (nm offsets from the stack
             -- centroid).  The two captures are optional so beta8/9 bridge
             -- file fallbacks still parse.
             local modex, alt, ias, inT, pt, state, relE, relN =
@@ -849,7 +849,7 @@ return 'ERR|' .. tostring(resQ)
         fillRows(commence, 'rowTwrComm',    5)
 
         -- Side-view scatter: x slot by index, y by altitude.
-        -- v1.3-beta13: mapped onto the drawn gridlines — 15k → y=56, 0 → y=152.
+        -- v1.3-beta14: mapped onto the drawn gridlines — 15k → y=56, 0 → y=152.
         local allAir = {}
         for _, r in base.ipairs(hold)     do table.insert(allAir, r) end
         for _, r in base.ipairs(charlie)  do table.insert(allAir, r) end
@@ -870,7 +870,7 @@ return 'ERR|' .. tostring(resQ)
             end
         end
 
-        -- Stack scope scatter — v1.3-beta13: TRUE positions.  The query
+        -- Stack scope scatter — v1.3-beta14: TRUE positions.  The query
         -- reports each aircraft's offset from the stack centroid in nm;
         -- scope centre (130, 103), 6 nm radius = 54 px → 9 px/nm.  N = up.
         for i = 1, 10 do
@@ -914,7 +914,7 @@ return 'ERR|' .. tostring(resQ)
         for i, r in ipairs(rows) do r.angels = 2 + (i - 1) end
 
         -- Scope scatter (N up).
-        local cx, cy, pxPerNm = 270, 212, 2.5
+        local cx, cy, pxPerNm = 270, 206, 2.45
         for i = 1, 12 do
             local r = rows[i]
             if r then
@@ -931,77 +931,79 @@ return 'ERR|' .. tostring(resQ)
             end
         end
 
-        -- Scripted radio readout.  Template (per inbound aircraft):
-        --   {modex}, {callsign}: Mother's weather clear, vis 10+.
-        --     Expect CV-1 approach, Case I recovery. Altimeter {alt}.
-        --     Marshal at Mother's angels {angels}, report see-me at 10.
+        -- Example rows used when no live traffic, so every panel (scope dots
+        -- aside) shows a realistic layout.
+        local example = (#rows == 0)
+        local tblRows = rows
+        if example then
+            tblRows = {
+                { modex = '203', alt = 12000, nm = 28.4, brg = 245, angels = 2 },
+                { modex = '204', alt = 11000, nm = 35.1, brg = 252, angels = 3 },
+                { modex = '211', alt = 10000, nm = 41.7, brg = 110, angels = 4 },
+            }
+        end
+
+        -- Scripted radio readout (prose), nearest 2 aircraft.
         local cs  = carrier.callsign or 'Mother'
         local alt = carrier.altimeter or '29.92'
         local lineIdx = 0
         local function put(txt)
             lineIdx = lineIdx + 1
-            if lineIdx <= 16 then setText('rowMarCall' .. lineIdx, txt) end
+            if lineIdx <= 8 then setText('rowMarCall' .. lineIdx, txt) end
         end
-        local shown = math.min(#rows, 4)
-        if shown == 0 then
-            -- No live traffic: show a filled example so the layout is visible.
-            -- Uses live callsign/altimeter when known, placeholder modex/angels.
-            put('-- EXAMPLE (no inbound traffic) ' .. string.rep('-', 28))
-            put(string.format("203, %s: Mother's weather clear, vis 10+ miles.", cs))
-            put(string.format("   Expect CV-1 approach, Case I recovery. Altimeter %s.", alt))
-            put("   Marshal Mother's angels 2, report see-me at 10.")
-            put('')
-            put(string.format("204, %s: Mother's weather clear, vis 10+ miles.", cs))
-            put(string.format("   Expect CV-1 approach, Case I recovery. Altimeter %s.", alt))
-            put("   Marshal Mother's angels 3, report see-me at 10.")
-        else
-            for i = 1, shown do
-                local r = rows[i]
-                put(string.format("%s, %s: Mother's weather clear, vis 10+ miles.", r.modex, cs))
-                put(string.format("   Expect CV-1 approach, Case I recovery. Altimeter %s.", alt))
-                put(string.format("   Marshal Mother's angels %d, report see-me at 10.", r.angels))
-                if i < shown then put('') end
+        local shown = math.min(#tblRows, 2)
+        for i = 1, shown do
+            local r = tblRows[i]
+            put(string.format("%s, %s: Mother's weather clear, vis 10+ miles.", r.modex, cs))
+            put(string.format("   Expect CV-1 approach, Case I. Altimeter %s.", alt))
+            put(string.format("   Marshal angels %d, report see-me at 10.", r.angels or (1+i)))
+            if i < shown then put('') end
+        end
+        for i = lineIdx + 1, 8 do setText('rowMarCall' .. i, '') end
+
+        -- Data table (MODEX / ALT / RNG / BRG / ANG).
+        for i = 1, 14 do
+            local r = tblRows[i]
+            if r then
+                setText('mTbl' .. i, string.format(
+                    ' %-4s  %5d  %5.1f  %3d°  %3d',
+                    r.modex, r.alt or 0, r.nm or 0, r.brg or 0, r.angels or (1+i)))
+            else
+                setText('mTbl' .. i, '')
             end
         end
-        for i = lineIdx + 1, 16 do setText('rowMarCall' .. i, '') end
 
-        -- Marshal stack racetrack: place each aircraft's modex at its angels.
-        -- Ladder: angels 2 at y=800, +22 px per angel (angels 7 at y=690).
-        -- With no live traffic, show two greyed example marks so the stack
-        -- layout is visible too.
-        local stackRows = rows
-        local example = (shown == 0)
-        if example then
-            stackRows = { { modex = '203', angels = 2 }, { modex = '204', angels = 3 } }
-        end
+        -- Marshal stack: place each aircraft's modex at its angels rung.
+        -- Pill y: angels 2 at y≈800, angels 7 at y≈556 (rung step ≈ 40 px).
+        local rungStep = (800 - 556) / 6
         for i = 1, 12 do
-            local r = stackRows[i]
-            if r then
+            local r = tblRows[i]
+            if r and r.angels then
                 local a = r.angels
                 if a > 7 then a = 7 end
-                local y = 800 - (a - 2) * 22 - 7
-                -- alternate left/right of the pill so labels don't overlap
-                local x = (i % 2 == 1) and 336 or 196
+                if a < 2 then a = 2 end
+                local y = math.floor(800 - (a - 2) * rungStep - 7)
+                local x = (i % 2 == 1) and 156 or 78   -- right/left of the pill
                 setText('stkSlot' .. i, r.modex)
-                setBounds('stkSlot' .. i, x, y, 50, 14)
+                setBounds('stkSlot' .. i, x, y, 46, 13)
             else
                 setText('stkSlot' .. i, '')
-                setBounds('stkSlot' .. i, -300, -300, 50, 14)
+                setBounds('stkSlot' .. i, -300, -300, 46, 13)
             end
         end
 
         if #rows > 0 then
-            setText('lblMarStatus', tostring(#rows) .. ' aircraft in CCZ  ·  showing nearest ' .. shown)
+            setText('lblMarStatus', tostring(#rows) .. ' aircraft in CCZ')
         else
-            setText('lblMarStatus', 'no inbound traffic  ·  showing example layout')
+            setText('lblMarStatus', 'no inbound traffic  ·  showing EXAMPLE layout')
         end
     end
 
     -- ─── LSO CASE I pattern visual ───────────────────────────────────────
-    -- v1.3-beta13: aircraft slots (acftPat1..8) get repositioned to the
+    -- v1.3-beta14: aircraft slots (acftPat1..8) get repositioned to the
     -- landmark coords for whichever pattern point the bridge classified
     -- them at.  Multiple aircraft at the same point stack vertically.
-    -- v1.3-beta13: HORIZONTAL racetrack — bottom leg y=220 (upwind, ship at
+    -- v1.3-beta14: HORIZONTAL racetrack — bottom leg y=220 (upwind, ship at
     -- the right end), right leg x=468 (break climb), top leg y=90 (downwind,
     -- right→left), rounded 180 on the left.
     local PATTERN_XY = {
@@ -1081,7 +1083,7 @@ return 'ERR|' .. tostring(resQ)
         end
 
         -- Modex slot positions on the deck silhouette (16 slots).
-        -- v1.3-beta13: HORIZONTAL deck — BOW = right, PORT = top.
+        -- v1.3-beta14: HORIZONTAL deck — BOW = right, PORT = top.
         --   along  +200 (bow)   → x=470   along -200 (stern) → x=66
         --   across -50 (port)   → y=124   across +50 (stbd)  → y=228
         for i = 1, 16 do
@@ -1173,7 +1175,7 @@ return 'ERR|' .. tostring(resQ)
             logInfo('bridge probe: present')
         else
             carrier.bridgeStatus = 'missing'
-            -- v1.3-beta13: radar/roster data comes from the mission query and
+            -- v1.3-beta14: radar/roster data comes from the mission query and
             -- works unpatched.  Only the BUTTONS (beacons/wind/lights/
             -- broadcasts) need the embedded bridge.
             setStatus('Mission NOT PATCHED — control buttons will not respond.\n' ..
@@ -1239,7 +1241,7 @@ return 'ERR|' .. tostring(resQ)
             wireButton(name, flag)
         end
 
-        -- tab buttons (v1.3-beta13: 5 tabs)
+        -- tab buttons (v1.3-beta14: 5 tabs)
         wireClick('btnTabCarrier',  function() showTab('carrier')  end)
         wireClick('btnTabMarshall', function() showTab('marshall') end)
         wireClick('btnTabTower',    function() showTab('tower')    end)
@@ -1387,7 +1389,7 @@ return 'ERR|' .. tostring(resQ)
         wireClick('btnCharlieBroadcast', function()
             setFlagValue('cg_charlie_min', carrier.charlieMin)
             fireFlag(201)
-            -- v1.3-beta13: flip every HOLDing aircraft to CHARLIE'D in the
+            -- v1.3-beta14: flip every HOLDing aircraft to CHARLIE'D in the
             -- mission-query state (the query chunk owns the roster state now).
             base.pcall(function()
                 net.dostring_in('server',
@@ -1464,7 +1466,7 @@ return 'ERR|' .. tostring(resQ)
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v1.3-beta13)')
+    logInfo('hook loaded (v1.3-beta14)')
 end
 
 local ok, err = pcall(load)

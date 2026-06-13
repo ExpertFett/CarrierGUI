@@ -98,7 +98,16 @@ Write-Host '=== CarrierGUI LSO tools installer ===' -ForegroundColor Cyan
 Write-Host "DCS: $dcs"
 
 # ---------------------------------------------------------- patch gui.fx ------
-if (-not (Test-Path $fxBak)) {
+# Update-resilient backup: if the LIVE file does NOT already contain our patch
+# marker (_amp), it's a clean/stock file — capture it as the backup (refreshing
+# any stale backup left over from before a DCS update).  If the live file IS
+# already patched, keep the existing clean .bak.  Either way we then patch from
+# the clean .bak.  This is what makes re-running after a DCS update Just Work.
+$liveFx = [IO.File]::ReadAllText($fx)
+if (-not $liveFx.Contains('_amp')) {
+    Copy-Item $fx $fxBak -Force
+    Write-Host 'Backed up gui.fx (fresh clean baseline)'
+} elseif (-not (Test-Path $fxBak)) {
     Copy-Item $fx $fxBak -Force
     Write-Host 'Backed up gui.fx'
 }
@@ -116,11 +125,17 @@ $g = $g.Replace($fxTarget, $fxReplace)
 Write-Host 'Patched gui.fx (alpha-as-gain mixer)' -ForegroundColor Green
 
 # -------------------------------------------------------- patch PLATCameraUI --
-if (-not (Test-Path $luaBak)) {
+# Same update-resilient logic.  If the live file is clean (no CARRIERGUI
+# marker) capture it as the fresh backup; otherwise restore from the clean
+# .bak so we re-patch from a known-good baseline.
+$liveLua = [IO.File]::ReadAllText($lua)
+if (-not $liveLua.Contains('CARRIERGUI_LSO_TOOLS')) {
     Copy-Item $lua $luaBak -Force
-    Write-Host 'Backed up PLATCameraUI.lua'
-} else {
+    Write-Host 'Backed up PLATCameraUI.lua (fresh clean baseline)'
+} elseif (Test-Path $luaBak) {
     Copy-Item $luaBak $lua -Force
+} else {
+    Copy-Item $lua $luaBak -Force
 }
 $t = [IO.File]::ReadAllText($lua)
 $luaAnchor = 'function setShipYawPitchRoll(heading,pitch,roll)'

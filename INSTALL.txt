@@ -1,5 +1,5 @@
 ================================================================
- CarrierGUI v1.3-beta15   ***  BETA — TEST BUILD  ***
+ CarrierGUI v1.3-beta16   ***  BETA — TEST BUILD  ***
  In-DCS Supercarrier control & LSO panel — VR-friendly
 ================================================================
 
@@ -59,7 +59,7 @@ inside DCS so it works in VR.
 ----------------------------------------------------------------
 
   1. Close DCS World if it's running.
-  2. Run  CarrierGUI-Setup-v1.3-beta15.exe
+  2. Run  CarrierGUI-Setup-v1.3-beta16.exe
   3. Wizard walks you through it. Keep defaults unless you know
      better. Next → Next → Install → Finish.
   4. Last wizard page has a checkbox:
@@ -80,7 +80,7 @@ time via Apps & Features → CarrierGUI.
 
 ALTERNATIVE — zip distribution (for users who'd rather extract
 manually):
-  - Extract CarrierGUI-v1.3-beta15.zip somewhere.
+  - Extract CarrierGUI-v1.3-beta16.zip somewhere.
   - Run Install.bat inside the extracted folder.
   - Same end result as the .exe installer.
 
@@ -107,7 +107,7 @@ To undo: drag the .miz onto Patcher\Revert Mission.bat.
  WHAT'S NEW vs v1.2-beta5
 ----------------------------------------------------------------
 
-  v1.3-beta15 is a SKELETON BETA. It widens the panel from 380→540
+  v1.3-beta16 is a SKELETON BETA. It widens the panel from 380→540
   px, adds two new tabs (MARSHALL and DECKBOSS), and renames the
   old MARSHALL tab to TOWER. The new tabs are empty placeholders
   in this beta — full content lands in subsequent betas:
@@ -224,7 +224,7 @@ First DCS launch after LSO\Enable-LsoTools.ps1 is very slow:
  VERSION / SUPPORT
 ----------------------------------------------------------------
 
-CarrierGUI v1.3-beta15 — personal project, free to share within
+CarrierGUI v1.3-beta16 — personal project, free to share within
 DCS squadrons. Not affiliated with Eagle Dynamics or Supercarrier.
 
 Stable fallback: v0.9 release (NVG bar only, no LSO tools).

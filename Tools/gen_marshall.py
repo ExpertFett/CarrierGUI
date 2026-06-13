@@ -56,8 +56,10 @@ emit('')
 ring_dots('mDotC', R60)
 emit('')
 
-emit(f'c.mDot   = solidW({CX-3}, {CY-3}, 6, 6, SHIP_MARK_SKIN, 4)')
-emit(f'c.lblMRcv = lbl("CV", {CX+6}, {CY-2}, 30, CarrierMark, 14)')
+# own-ship marker — a small amber "boat" (hull rect + bow nub) at centre
+emit(f'c.mShipHull = solidW({CX-4}, {CY-9}, 8, 18, SHIP_MARK_SKIN, 4)')
+emit(f'c.mShipBow  = solidW({CX-2}, {CY-13}, 4, 5, SHIP_MARK_SKIN, 4)')
+emit(f'c.lblMRcv = lbl("CV", {CX+8}, {CY-2}, 30, CarrierMark, 14)')
 emit(f'c.lblMR20 = lbl("20", {CX+4}, {CY-R20-2}, 20, RadarLbl, 12)')
 emit(f'c.lblMR40 = lbl("40", {CX+4}, {CY-R40-2}, 20, RadarLbl, 12)')
 emit(f'c.lblMR60 = lbl("60", {CX+4}, {CY-R60+2}, 20, RadarLbl, 12)')
@@ -89,10 +91,19 @@ emit(f'c.sPillL = solidW({PL}, {PT}, 2, {PB-PT}, SCOPE_RG_SKIN, 3)')
 emit(f'c.sPillR = solidW({PR}, {PT}, 2, {PB-PT}, SCOPE_RG_SKIN, 3)')
 emit(f'c.sPillT = solidW({PL}, {PT}, {PR-PL}, 2, SCOPE_RG_SKIN, 3)')
 emit(f'c.sPillB = solidW({PL}, {PB}, {PR-PL+2}, 2, SCOPE_RG_SKIN, 3)')
+# angels ladder on the LEFT (altitude), rungs across the pill
+RSTEP = (PB-PT)//6
 for a in range(2, 8):
-    y = PB - (a-2)*((PB-PT)//6)
+    y = PB - (a-2)*RSTEP
     emit(f'c.lblStkA{a} = lbl("{a}", {PL-26}, {y-8}, 22, RadarLbl, 13)')
     emit(f'c.sRung{a} = solidW({PL}, {y}, {PR-PL}, 1, SCOPE_LN_SKIN, 2)')
+emit('c.lblStkAng = lbl("angels", ' + str(PL-30) + ', ' + str(PT-18) + ', 60, CapSkin, 12)')
+# stack POSITION numbers 1..4 INSIDE the pill at the lowest 4 rungs
+# (position 1 = angels 2 = first to commence)
+for pos in range(1, 5):
+    a = pos + 1                       # pos1->angels2 ... pos4->angels5
+    y = PB - (a-2)*RSTEP
+    emit(f'c.lblStkP{pos} = lbl("{pos}", {(PL+PR)//2-4}, {y-8}, 16, DeckHdr, 14)')
 emit('for i = 1, 12 do')
 emit('    c["stkSlot" .. i] = lbl("", -300, -300, 46, SpotSkin, 13)')
 emit('end')

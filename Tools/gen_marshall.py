@@ -13,7 +13,10 @@ import math
 from pathlib import Path
 
 CX, CY = 270, 206
-R20, R40, R60 = 49, 98, 148
+# scope reads to 60 nm at r=148 (2.467 px/nm); rings drawn at 10/25/50 nm
+PXNM = 148.0 / 60.0
+R10, R25, R50 = round(10*PXNM), round(25*PXNM), round(50*PXNM)   # 25 / 62 / 123
+REDGE = 148
 SX, SY, SW, SH = 16, 54, 508, 304
 
 L = []
@@ -32,8 +35,8 @@ emit(f'c.mBordL = solidW({SX}, {SY}, 2, {SH}, SCOPE_RG_SKIN, 3)')
 emit(f'c.mBordR = solidW({SX+SW}, {SY}, 2, {SH}, SCOPE_RG_SKIN, 3)')
 emit('')
 emit('-- crosshair (plain rects)')
-emit(f'c.mCrossV = solidW({CX}, {CY-R60}, 1, {2*R60}, SCOPE_LN_SKIN, 2)')
-emit(f'c.mCrossH = solidW({CX-R60}, {CY}, {2*R60}, 1, SCOPE_LN_SKIN, 2)')
+emit(f'c.mCrossV = solidW({CX}, {CY-REDGE}, 1, {2*REDGE}, SCOPE_LN_SKIN, 2)')
+emit(f'c.mCrossH = solidW({CX-REDGE}, {CY}, {2*REDGE}, 1, SCOPE_LN_SKIN, 2)')
 emit('')
 
 def ring_dots(prefix, r, gap=6, d=5):
@@ -46,25 +49,25 @@ def ring_dots(prefix, r, gap=6, d=5):
         emit(f'c.{prefix}{i+1} = solidW({round(px-d/2)}, {round(py-d/2)}, {d}, {d}, SCOPE_RING_SKIN, 3)')
     counts[prefix] = n
 
-emit('-- range rings (dense dots = solid circles)')
-ring_dots('mDotA', R20)
+emit('-- range rings at 10 / 25 / 50 nm (dense dots = solid circles)')
+ring_dots('mDotA', R10)
 emit('')
-ring_dots('mDotB', R40)
+ring_dots('mDotB', R25)
 emit('')
-ring_dots('mDotC', R60)
+ring_dots('mDotC', R50)
 emit('')
 
 emit('-- own-ship boat marker at scope centre (hull + bow)')
 emit(f'c.mShipHull = solidW({CX-4}, {CY-9}, 8, 18, SHIP_MARK_SKIN, 4)')
 emit(f'c.mShipBow  = solidW({CX-2}, {CY-13}, 4, 5, SHIP_MARK_SKIN, 4)')
 emit(f'c.lblMRcv = lbl("CV", {CX+8}, {CY-2}, 30, CarrierMark, 14)')
-emit(f'c.lblMR20 = lbl("20", {CX+4}, {CY-R20-2}, 20, RadarLbl, 12)')
-emit(f'c.lblMR40 = lbl("40", {CX+4}, {CY-R40-2}, 20, RadarLbl, 12)')
-emit(f'c.lblMR60 = lbl("60", {CX+4}, {CY-R60+2}, 20, RadarLbl, 12)')
-emit(f'c.lblMRN  = lbl("N", {CX-4}, {CY-R60-16}, 14, RadarLbl, 12)')
-emit(f'c.lblMRS  = lbl("S", {CX-4}, {CY+R60+2}, 14, RadarLbl, 12)')
-emit(f'c.lblMRE  = lbl("E", {CX+R60+6}, {CY-8}, 14, RadarLbl, 12)')
-emit(f'c.lblMRW  = lbl("W", {CX-R60-16}, {CY-8}, 14, RadarLbl, 12)')
+emit(f'c.lblMR20 = lbl("10", {CX+4}, {CY-R10-2}, 20, RadarLbl, 12)')
+emit(f'c.lblMR40 = lbl("25", {CX+4}, {CY-R25-2}, 20, RadarLbl, 12)')
+emit(f'c.lblMR60 = lbl("50", {CX+4}, {CY-R50+2}, 20, RadarLbl, 12)')
+emit(f'c.lblMRN  = lbl("N", {CX-4}, {CY-REDGE-16}, 14, RadarLbl, 12)')
+emit(f'c.lblMRS  = lbl("S", {CX-4}, {CY+REDGE+2}, 14, RadarLbl, 12)')
+emit(f'c.lblMRE  = lbl("E", {CX+REDGE+6}, {CY-8}, 14, RadarLbl, 12)')
+emit(f'c.lblMRW  = lbl("W", {CX-REDGE-16}, {CY-8}, 14, RadarLbl, 12)')
 emit('')
 emit('-- aircraft scatter slots on the scope (hook positions by brg/nm)')
 emit('for i = 1, 12 do')
@@ -112,12 +115,38 @@ emit('    c["stkSlot" .. i] = lbl("", -300, -300, 44, SpotSkin, 13)')
 emit('end')
 emit('')
 
-emit('-- ── inbound data table (right) ────────────────────────────────────')
-TX = 280
-emit(f'c.lblMTblHdr  = lbl("INBOUND", {TX}, 532, 250, LabelSkin, 18)')
-emit(f'c.lblMTblCols = lbl("MODEX  ALT    RNG   BRG  ANG", {TX}, 554, 250, CapSkin, 14)')
-emit('for i = 1, 13 do')
-emit(f'    c["mTbl" .. i] = lbl("", {TX}, 574 + (i-1)*16, 252, RowSkinMon, 15)')
+emit('-- ── marshal assignment TABLE (right, bordered grid) ───────────────')
+# table box
+TX, TW = 238, 290
+THDR_Y = 532          # section label
+TTOP   = 552          # table top border (header row)
+TROWH  = 17
+TNROW  = 13
+TBOT   = TTOP + (TNROW + 1) * TROWH    # +1 for header row
+# column x-edges within the table (6 columns): MODEX ALT RNG BRG ANG EAT
+colx = [TX, TX+50, TX+96, TX+140, TX+182, TX+222, TX+TW]
+emit(f'c.lblMTblHdr = lbl("MARSHAL STACK  ·  auto-assigned", {TX}, {THDR_Y}, 290, LabelSkin, 16)')
+# outer border
+emit(f'c.mTblBT = solidW({TX}, {TTOP}, {TW}, 1, SCOPE_RG_SKIN, 3)')
+emit(f'c.mTblBB = solidW({TX}, {TBOT}, {TW+1}, 1, SCOPE_RG_SKIN, 3)')
+emit(f'c.mTblBL = solidW({TX}, {TTOP}, 1, {TBOT-TTOP}, SCOPE_RG_SKIN, 3)')
+emit(f'c.mTblBR = solidW({TX+TW}, {TTOP}, 1, {TBOT-TTOP+1}, SCOPE_RG_SKIN, 3)')
+# header underline
+emit(f'c.mTblHL = solidW({TX}, {TTOP+TROWH}, {TW}, 1, SCOPE_RG_SKIN, 3)')
+# column dividers
+for ci in range(1, 6):
+    emit(f'c.mTblV{ci} = solidW({colx[ci]}, {TTOP}, 1, {TBOT-TTOP}, SCOPE_LN_SKIN, 2)')
+# column header labels (centred-ish in each column)
+heads = ['MODEX', 'ALT', 'RNG', 'BRG', 'ANG', 'EAT']
+for ci, h in enumerate(heads):
+    emit(f'c.lblMTh{ci+1} = lbl("{h}", {colx[ci]+4}, {TTOP+3}, {colx[ci+1]-colx[ci]}, CapSkin, 14)')
+# per-cell label pool: 6 cells x TNROW rows -> mCell<row>_<col>
+emit('-- per-cell labels (hook fills text per column)')
+emit(f'local _cx = {{{", ".join(str(x+4) for x in colx[:6])}}}')
+emit(f'for r = 1, {TNROW} do')
+emit(f'  for ccol = 1, 6 do')
+emit(f'    c["mCell" .. r .. "_" .. ccol] = lbl("", _cx[ccol], {TTOP+TROWH}+(r-1)*{TROWH}+2, 48, RowSkinMon, 15)')
+emit('  end')
 emit('end')
 emit('')
 emit('c.lblMarStatus = lbl("(no inbound traffic)", PAD, 834, W - PAD*2, CapSkin, 16)')

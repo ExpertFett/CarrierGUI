@@ -25,7 +25,7 @@ counts = {}
 
 emit('-- ============================================================== MARSHALL TAB ==')
 emit('-- v1.3-beta16: solid dot rings + one marshal call + MOTHER info + stack + table')
-emit('c.lblMarshallHdr = lbl("CCZ TRACKER  ·  60 nm  ·  N up", PAD, 30, W - PAD*2, LabelSkin, 20)')
+emit('c.lblMarshallHdr = lbl("CCZ TRACKER  ·  60 nm", PAD, 30, W - PAD*2, LabelSkin, 20)')
 emit('')
 emit('-- scope field + border')
 emit(f'c.mScope = solidW({SX}, {SY}, {SW}, {SH}, SCOPE_BG_SKIN, 1)')
@@ -106,10 +106,8 @@ for a in range(2, 8):
     y = rungY(a)
     emit(f'c.lblStkA{a} = lbl("{a}", {PL-24}, {y-8}, 22, RadarLbl, 13)')
     emit(f'c.sRung{a} = solidW({PL}, {y}, {PR-PL}, 1, SCOPE_LN_SKIN, 2)')
-# fixed stack POSITION numbers 1..4 inside the pill (pos1=angels2 bottom)
-for pos in range(1, 5):
-    y = rungY(pos + 1)
-    emit(f'c.lblStkP{pos} = lbl("{pos}", {(PL+PR)//2-4}, {y-8}, 16, DeckHdr, 14)')
+# (beta18: removed the green 1-4 position numbers inside the pill — the
+#  angels labels on the left are enough, per feedback.)
 emit('for i = 1, 12 do')
 emit('    c["stkSlot" .. i] = lbl("", -300, -300, 44, SpotSkin, 13)')
 emit('end')

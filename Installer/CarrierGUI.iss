@@ -8,7 +8,7 @@
 ; Hooks\, Patcher\ (incl. python\), and LSO\ subtrees ready to ship.
 
 #define MyAppName        "CarrierGUI"
-#define MyAppVersion     "1.3-beta21"
+#define MyAppVersion     "1.3-beta22"
 #define MyAppPublisher   "ExpertFett"
 #define MyAppURL         "https://github.com/ExpertFett/CarrierGUI"
 #define MyAppExeBase     "CarrierGUI-Setup-v" + MyAppVersion
@@ -86,6 +86,14 @@ Name: "{group}\LSO Tools folder";        Filename: "{app}\LSO";           Compon
 Name: "{group}\README";                  Filename: "{app}\README.txt"
 Name: "{group}\Uninstall {#MyAppName}";  Filename: "{uninstallexe}"
 Name: "{autodesktop}\CarrierGUI Patcher"; Filename: "{app}\Patcher";      Tasks: deskicon
+; One-click re-apply of the LSO/NVG patch — needed after every DCS update
+; (a DCS update reverts gui.fx + PLATCameraUI.lua to stock).  Close DCS first.
+Name: "{autodesktop}\Re-apply CarrierGUI LSO Patch"; Filename: "powershell.exe"; \
+    Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\LSO\Enable-LsoTools.ps1"""; \
+    Components: lso
+Name: "{group}\Re-apply LSO Patch (after DCS updates)"; Filename: "powershell.exe"; \
+    Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\LSO\Enable-LsoTools.ps1"""; \
+    Components: lso
 
 [Run]
 ; Optional post-install: run Enable-LsoTools to apply the gui.fx + PLATCameraUI patches.

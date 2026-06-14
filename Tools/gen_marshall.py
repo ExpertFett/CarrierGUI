@@ -39,27 +39,24 @@ emit(f'c.mCrossV = solidW({CX}, {CY-REDGE}, 1, {2*REDGE}, SCOPE_LN_SKIN, 2)')
 emit(f'c.mCrossH = solidW({CX-REDGE}, {CY}, {2*REDGE}, 1, SCOPE_LN_SKIN, 2)')
 emit('')
 
-def ring_dots(prefix, r, gap=6, d=5):
-    # dot rings at z=2 — the FALLBACK if the image overlay won't load.
+def ring_dots(prefix, r, gap=4, d=5):
+    # SOLID rings: 5px squares every 4px overlap into a continuous line (no
+    # visible dotting).  Runtime setSkin image-load doesn't work in dxgui, so
+    # overlapping dots are the reliable way to a solid-looking ring.
     n = max(8, int(round(2*math.pi*r/gap)))
     for i in range(n):
         th = 2*math.pi*i/n
         px = CX + r*math.cos(th)
         py = CY + r*math.sin(th)
-        emit(f'c.{prefix}{i+1} = solidW({round(px-d/2)}, {round(py-d/2)}, {d}, {d}, SCOPE_RING_SKIN, 2)')
+        emit(f'c.{prefix}{i+1} = solidW({round(px-d/2)}, {round(py-d/2)}, {d}, {d}, SCOPE_RING_SKIN, 3)')
     counts[prefix] = n
 
-emit('-- range rings at 10 / 25 / 50 nm — dot fallback (z=2)')
+emit('-- range rings at 10 / 25 / 50 nm — SOLID (overlapping dots, z=3)')
 ring_dots('mDotA', R10)
 emit('')
 ring_dots('mDotB', R25)
 emit('')
 ring_dots('mDotC', R50)
-emit('')
-emit('-- smooth-ring IMAGE overlay (z=3, above dots).  Starts transparent;')
-emit('-- the hook swaps in radar_scope.tga via setSkin.  If the image loads,')
-emit('-- its solid rings cover the dots; if not, the dots remain visible.')
-emit(f'c.mScopeImg = solidW({SX}, {SY}, {SW}, {SH}, TRANSPARENT_SKIN, 3)')
 emit('')
 
 emit('-- own-ship marker (neutral square) + BRC heading vector dots.')

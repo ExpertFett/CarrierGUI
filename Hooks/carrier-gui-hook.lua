@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v1.3-beta21 — full 5-tab UX overhaul)
+-- CarrierGUI Hook  (rebuild v1.3-beta22 — full 5-tab UX overhaul)
 --   CARRIER  — F10 menu controls.  Unchanged.
 --   MARSHALL — NEW. 60nm CCZ tracker + marshal radio readout.
 --   TOWER    — was old MARSHALL.  Now has STACK / CHARLIE'D / COMMENCING
@@ -147,7 +147,7 @@ local function load()
     -- MARSHALL (beta14): dot-ring radar + scripted readout + stack + table.
     local MARSHALL_WIDGETS = {
         'lblMarshallHdr',
-        'mScope','mBordT','mBordB','mBordL','mBordR','mCrossV','mCrossH','mScopeImg',
+        'mScope','mBordT','mBordB','mBordL','mBordR','mCrossV','mCrossH',
         'mShip','lblBrcTip',
         'hdgDot1','hdgDot2','hdgDot3','hdgDot4','hdgDot5','hdgDot6','hdgDot7',
         'lblMRcv','lblMR20','lblMR40','lblMR60','lblMRN','lblMRS','lblMRE','lblMRW',
@@ -169,9 +169,9 @@ local function load()
     for r = 1, 13 do for ccol = 1, 6 do
         table.insert(MARSHALL_WIDGETS, 'mCell' .. r .. '_' .. ccol)
     end end
-    for i = 1,  26 do table.insert(MARSHALL_WIDGETS, 'mDotA' .. i) end
-    for i = 1,  65 do table.insert(MARSHALL_WIDGETS, 'mDotB' .. i) end
-    for i = 1, 129 do table.insert(MARSHALL_WIDGETS, 'mDotC' .. i) end
+    for i = 1,  39 do table.insert(MARSHALL_WIDGETS, 'mDotA' .. i) end
+    for i = 1,  97 do table.insert(MARSHALL_WIDGETS, 'mDotB' .. i) end
+    for i = 1, 193 do table.insert(MARSHALL_WIDGETS, 'mDotC' .. i) end
     -- DECKBOSS: rotated top-down view with box-drawn outline + zone labels +
     -- modex slot pool + ON DECK list + conga toggle.
     local DECKBOSS_WIDGETS = {
@@ -227,7 +227,7 @@ local function load()
         'lblNvgState',
     }
 
-    -- v1.3-beta21: register the drawn-scope widgets (solid fills, rings,
+    -- v1.3-beta22: register the drawn-scope widgets (solid fills, rings,
     -- lines, arcs) with their tabs so they hide on tab switch.  Stale beta8
     -- names still present in the literal lists above are harmless —
     -- setWidgetVisible no-ops on missing children.  c.bgPanel (the whole-
@@ -278,7 +278,7 @@ local function load()
     -- Gotcha #4: setVisible(false) destroys the dialog. We toggle visibility
     -- via the SRS-style pattern: real setVisible(true), then either setSize(0,0)
     -- (= hidden) or restore to full size.
-    local FULL_W, FULL_H = 540, 900   -- v1.3-beta21: bumped for radar overlays
+    local FULL_W, FULL_H = 540, 900   -- v1.3-beta22: bumped for radar overlays
 
     -- Set a value-flag (used to pass numeric params like flight count / minutes
     -- to the bridge before firing the action flag).
@@ -434,7 +434,7 @@ local function load()
     end
 
     local function readShipState()
-        -- v1.3-beta21: primary source is the mission query (carrier.q.ship);
+        -- v1.3-beta22: primary source is the mission query (carrier.q.ship);
         -- the bridge file only exists on desanitized servers.
         local content = (carrier.q and carrier.q.ship) or ''
         if content == '' then
@@ -508,7 +508,7 @@ local function load()
     end
 
     -- =====================================================================
-    -- v1.3-beta21: MISSION QUERY — the hook pulls all live data itself via
+    -- v1.3-beta22: MISSION QUERY — the hook pulls all live data itself via
     -- net.dostring_in('server', chunk).  Field debugging found DCS's default
     -- MissionScripting.lua sanitizes io/lfs/os in the mission env, so the
     -- bridge can NEVER write IPC files on a stock install — every
@@ -846,7 +846,7 @@ return 'ERR|' .. tostring(resQ)
     end
 
     -- ─── TOWER stack roster + mini overhead/side radars ──────────────────
-    -- Stack file format includes ALT/IAS/POINT/STATE.  v1.3-beta21 also
+    -- Stack file format includes ALT/IAS/POINT/STATE.  v1.3-beta22 also
     -- positions twrOh* (overhead scatter) and twrSv* (side-view scatter)
     -- using a separate parse that grabs BRG too — bridge writes BRG/NM in
     -- the carriergui_ccz.txt format inside 25 nm.  For now we approximate
@@ -857,7 +857,7 @@ return 'ERR|' .. tostring(resQ)
         if content == '' then content = slurp(STACK_FILE_V13) end
         local hold, charlie, commence = {}, {}, {}
         for line in content:gmatch('[^\r\n]+') do
-            -- v1.3-beta21 format adds relE|relN (nm offsets from the stack
+            -- v1.3-beta22 format adds relE|relN (nm offsets from the stack
             -- centroid).  The two captures are optional so beta8/9 bridge
             -- file fallbacks still parse.
             local modex, alt, ias, inT, pt, state, relE, relN =
@@ -896,7 +896,7 @@ return 'ERR|' .. tostring(resQ)
         fillRows(commence, 'rowTwrComm',    5)
 
         -- Side-view scatter: x slot by index, y by altitude.
-        -- v1.3-beta21: mapped onto the drawn gridlines — 15k → y=56, 0 → y=152.
+        -- v1.3-beta22: mapped onto the drawn gridlines — 15k → y=56, 0 → y=152.
         local allAir = {}
         for _, r in base.ipairs(hold)     do table.insert(allAir, r) end
         for _, r in base.ipairs(charlie)  do table.insert(allAir, r) end
@@ -917,7 +917,7 @@ return 'ERR|' .. tostring(resQ)
             end
         end
 
-        -- Stack scope scatter — v1.3-beta21: TRUE positions.  The query
+        -- Stack scope scatter — v1.3-beta22: TRUE positions.  The query
         -- reports each aircraft's offset from the stack centroid in nm;
         -- scope centre (130, 103), 6 nm radius = 54 px → 9 px/nm.  N = up.
         for i = 1, 10 do
@@ -1097,10 +1097,10 @@ return 'ERR|' .. tostring(resQ)
     end
 
     -- ─── LSO CASE I pattern visual ───────────────────────────────────────
-    -- v1.3-beta21: aircraft slots (acftPat1..8) get repositioned to the
+    -- v1.3-beta22: aircraft slots (acftPat1..8) get repositioned to the
     -- landmark coords for whichever pattern point the bridge classified
     -- them at.  Multiple aircraft at the same point stack vertically.
-    -- v1.3-beta21: HORIZONTAL racetrack — bottom leg y=220 (upwind, ship at
+    -- v1.3-beta22: HORIZONTAL racetrack — bottom leg y=220 (upwind, ship at
     -- the right end), right leg x=468 (break climb), top leg y=90 (downwind,
     -- right→left), rounded 180 on the left.
     local PATTERN_XY = {
@@ -1180,7 +1180,7 @@ return 'ERR|' .. tostring(resQ)
         end
 
         -- Modex slot positions on the deck silhouette (16 slots).
-        -- v1.3-beta21: HORIZONTAL deck — BOW = right, PORT = top.
+        -- v1.3-beta22: HORIZONTAL deck — BOW = right, PORT = top.
         --   along  +200 (bow)   → x=470   along -200 (stern) → x=66
         --   across -50 (port)   → y=124   across +50 (stbd)  → y=228
         for i = 1, 16 do
@@ -1272,7 +1272,7 @@ return 'ERR|' .. tostring(resQ)
             logInfo('bridge probe: present')
         else
             carrier.bridgeStatus = 'missing'
-            -- v1.3-beta21: radar/roster data comes from the mission query and
+            -- v1.3-beta22: radar/roster data comes from the mission query and
             -- works unpatched.  Only the BUTTONS (beacons/wind/lights/
             -- broadcasts) need the embedded bridge.
             setStatus('Mission NOT PATCHED — control buttons will not respond.\n' ..
@@ -1338,38 +1338,17 @@ return 'ERR|' .. tostring(resQ)
             wireButton(name, flag)
         end
 
-        -- tab buttons (v1.3-beta21: 5 tabs)
+        -- tab buttons (v1.3-beta22: 5 tabs)
         wireClick('btnTabCarrier',  function() showTab('carrier')  end)
         wireClick('btnTabMarshall', function() showTab('marshall') end)
         wireClick('btnTabTower',    function() showTab('tower')    end)
         wireClick('btnTabLso',      function() showTab('lso')      end)
         wireClick('btnTabDeckboss', function() showTab('deckboss') end)
 
-        -- v1.3-beta21: smooth-ring image overlay for the MARSHALL scope.
-        -- Apply radar_scope.tga (transparent bg + AA light-green rings) to the
-        -- mScopeImg overlay widget.  If the picture loader accepts it, the
-        -- solid rings replace the dotted look; if it fails, the widget stays
-        -- transparent and the dot rings underneath remain (no regression).
-        if carrier.window.mScopeImg then
-            local imgPath = lfs.writedir() .. 'Scripts\\Hooks\\radar_scope.tga'
-            local function cell() return '0xffffffff' end
-            local imgSkin = {
-                params = { name = 'staticSkin' },
-                states = { released = { [1] = { bkg = {
-                    center_bottom = cell(), center_center = cell(), center_top = cell(),
-                    left_bottom   = cell(), left_center   = cell(), left_top   = cell(),
-                    right_bottom  = cell(), right_center  = cell(), right_top  = cell(),
-                    file   = imgPath,
-                    rect   = { x1 = 0, y1 = 0, x2 = 508, y2 = 304 },
-                    insets = { top = 0, bottom = 0, left = 0, right = 0 },
-                } } } },
-            }
-            local sok, serr = base.pcall(function()
-                carrier.window.mScopeImg:setSkin(imgSkin)
-            end)
-            if sok then logInfo('radar image overlay applied (' .. imgPath .. ')')
-            else        logErr('radar image setSkin failed: ' .. tostring(serr)) end
-        end
+        -- (v1.3-beta22's runtime image overlay removed in beta22: dxgui's
+        -- picture loader does not load a bkg.file via runtime setSkin — the
+        -- call succeeds but nothing renders.  Rings are now solid overlapping
+        -- dots instead.)
 
         -- LSO tab: NVG gain bar gauge
         local function setNvgGain(pct)
@@ -1512,7 +1491,7 @@ return 'ERR|' .. tostring(resQ)
         wireClick('btnCharlieBroadcast', function()
             setFlagValue('cg_charlie_min', carrier.charlieMin)
             fireFlag(201)
-            -- v1.3-beta21: flip every HOLDing aircraft to CHARLIE'D in the
+            -- v1.3-beta22: flip every HOLDing aircraft to CHARLIE'D in the
             -- mission-query state (the query chunk owns the roster state now).
             base.pcall(function()
                 net.dostring_in('server',
@@ -1589,7 +1568,7 @@ return 'ERR|' .. tostring(resQ)
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v1.3-beta21)')
+    logInfo('hook loaded (v1.3-beta22)')
 end
 
 local ok, err = pcall(load)

@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v1.3-beta27 — full 5-tab UX overhaul)
+-- CarrierGUI Hook  (rebuild v1.3-beta28 — full 5-tab UX overhaul)
 --   CARRIER  — F10 menu controls.  Unchanged.
 --   MARSHALL — NEW. 60nm CCZ tracker + marshal radio readout.
 --   TOWER    — was old MARSHALL.  Now has STACK / CHARLIE'D / COMMENCING
@@ -194,6 +194,8 @@ local function load()
         -- Aircraft slot pool
         'spotDb1','spotDb2','spotDb3','spotDb4','spotDb5','spotDb6','spotDb7','spotDb8',
         'spotDb9','spotDb10','spotDb11','spotDb12','spotDb13','spotDb14','spotDb15','spotDb16',
+        'dbDot1','dbDot2','dbDot3','dbDot4','dbDot5','dbDot6','dbDot7','dbDot8',
+        'dbDot9','dbDot10','dbDot11','dbDot12','dbDot13','dbDot14','dbDot15','dbDot16',
         -- On-deck list
         'lblDbOnDeckHdr','lblDbOnDeckCols',
         'rowDbOnDeck1','rowDbOnDeck2','rowDbOnDeck3','rowDbOnDeck4','rowDbOnDeck5',
@@ -215,6 +217,7 @@ local function load()
         'lblPatH6','lblPatH7','lblPatH8','lblPatH9','lblPatH10',
         -- Aircraft slot pool
         'acftPat1','acftPat2','acftPat3','acftPat4','acftPat5','acftPat6','acftPat7','acftPat8',
+        'acftDot1','acftDot2','acftDot3','acftDot4','acftDot5','acftDot6','acftDot7','acftDot8',
         -- LSO lights
         'lblLightsHdr','btnWaveOff','btnCut',
         -- PLAT camera
@@ -228,7 +231,7 @@ local function load()
         'lblNvgState',
     }
 
-    -- v1.3-beta27: register the drawn-scope widgets (solid fills, rings,
+    -- v1.3-beta28: register the drawn-scope widgets (solid fills, rings,
     -- lines, arcs) with their tabs so they hide on tab switch.  Stale beta8
     -- names still present in the literal lists above are harmless —
     -- setWidgetVisible no-ops on missing children.  c.bgPanel (the whole-
@@ -280,7 +283,7 @@ local function load()
     -- Gotcha #4: setVisible(false) destroys the dialog. We toggle visibility
     -- via the SRS-style pattern: real setVisible(true), then either setSize(0,0)
     -- (= hidden) or restore to full size.
-    local FULL_W, FULL_H = 540, 900   -- v1.3-beta27: bumped for radar overlays
+    local FULL_W, FULL_H = 540, 900   -- v1.3-beta28: bumped for radar overlays
 
     -- Set a value-flag (used to pass numeric params like flight count / minutes
     -- to the bridge before firing the action flag).
@@ -436,7 +439,7 @@ local function load()
     end
 
     local function readShipState()
-        -- v1.3-beta27: primary source is the mission query (carrier.q.ship);
+        -- v1.3-beta28: primary source is the mission query (carrier.q.ship);
         -- the bridge file only exists on desanitized servers.
         local content = (carrier.q and carrier.q.ship) or ''
         if content == '' then
@@ -510,7 +513,7 @@ local function load()
     end
 
     -- =====================================================================
-    -- v1.3-beta27: MISSION QUERY — the hook pulls all live data itself via
+    -- v1.3-beta28: MISSION QUERY — the hook pulls all live data itself via
     -- net.dostring_in('server', chunk).  Field debugging found DCS's default
     -- MissionScripting.lua sanitizes io/lfs/os in the mission env, so the
     -- bridge can NEVER write IPC files on a stock install — every
@@ -880,7 +883,7 @@ return 'ERR|' .. tostring(resQ)
     end
 
     -- ─── TOWER stack roster + mini overhead/side radars ──────────────────
-    -- Stack file format includes ALT/IAS/POINT/STATE.  v1.3-beta27 also
+    -- Stack file format includes ALT/IAS/POINT/STATE.  v1.3-beta28 also
     -- positions twrOh* (overhead scatter) and twrSv* (side-view scatter)
     -- using a separate parse that grabs BRG too — bridge writes BRG/NM in
     -- the carriergui_ccz.txt format inside 25 nm.  For now we approximate
@@ -891,7 +894,7 @@ return 'ERR|' .. tostring(resQ)
         if content == '' then content = slurp(STACK_FILE_V13) end
         local hold, charlie, commence = {}, {}, {}
         for line in content:gmatch('[^\r\n]+') do
-            -- v1.3-beta27 format adds relE|relN (nm offsets from the stack
+            -- v1.3-beta28 format adds relE|relN (nm offsets from the stack
             -- centroid).  The two captures are optional so beta8/9 bridge
             -- file fallbacks still parse.
             local modex, alt, ias, inT, pt, state, relE, relN =
@@ -930,7 +933,7 @@ return 'ERR|' .. tostring(resQ)
         fillRows(commence, 'rowTwrComm',    5)
 
         -- Side-view scatter: x slot by index, y by altitude.
-        -- v1.3-beta27: mapped onto the drawn gridlines — 15k → y=56, 0 → y=152.
+        -- v1.3-beta28: mapped onto the drawn gridlines — 15k → y=56, 0 → y=152.
         local allAir = {}
         for _, r in base.ipairs(hold)     do table.insert(allAir, r) end
         for _, r in base.ipairs(charlie)  do table.insert(allAir, r) end
@@ -1184,10 +1187,10 @@ return 'ERR|' .. tostring(resQ)
     end
 
     -- ─── LSO CASE I pattern visual ───────────────────────────────────────
-    -- v1.3-beta27: aircraft slots (acftPat1..8) get repositioned to the
+    -- v1.3-beta28: aircraft slots (acftPat1..8) get repositioned to the
     -- landmark coords for whichever pattern point the bridge classified
     -- them at.  Multiple aircraft at the same point stack vertically.
-    -- v1.3-beta27: HORIZONTAL racetrack — bottom leg y=220 (upwind, ship at
+    -- v1.3-beta28: HORIZONTAL racetrack — bottom leg y=220 (upwind, ship at
     -- the right end), right leg x=468 (break climb), top leg y=90 (downwind,
     -- right→left), rounded 180 on the left.
     local PATTERN_XY = {
@@ -1213,23 +1216,23 @@ return 'ERR|' .. tostring(resQ)
                 })
             end
         end
+        -- blip dot AT the pattern point + datablock (id + altitude) beside it;
+        -- multiple aircraft at the same point stack downward.
         local placed = {}
         for i = 1, 8 do
             local r = list[i]
-            if r then
-                local xy = PATTERN_XY[r.point]
-                if xy then
-                    placed[r.point] = (placed[r.point] or 0) + 1
-                    local offY = (placed[r.point] - 1) * 16
-                    setText('acftPat' .. i, r.modex)
-                    setBounds('acftPat' .. i, xy[1], xy[2] + offY, 40, 14)
-                else
-                    setText('acftPat' .. i, '')
-                    setBounds('acftPat' .. i, -200, -200, 40, 14)
-                end
+            local xy = r and PATTERN_XY[r.point]
+            if xy then
+                placed[r.point] = (placed[r.point] or 0) + 1
+                local offY = (placed[r.point] - 1) * 14
+                setBounds('acftDot' .. i, xy[1] - 2, xy[2] + offY - 2, 5, 5)
+                local altk = math.floor((r.alt or 0) / 1000 + 0.5)
+                setText('acftPat' .. i, string.format('%s %dk', r.modex:sub(1, 7), altk))
+                setBounds('acftPat' .. i, xy[1] + 6, xy[2] + offY - 6, 64, 13)
             else
+                setBounds('acftDot' .. i, -300, -300, 5, 5)
                 setText('acftPat' .. i, '')
-                setBounds('acftPat' .. i, -200, -200, 40, 14)
+                setBounds('acftPat' .. i, -300, -300, 64, 13)
             end
         end
     end
@@ -1259,33 +1262,47 @@ return 'ERR|' .. tostring(resQ)
                 elseif r.along > -90 then zone = '6-PACK'
                 else                      zone = 'JUNKYARD' end
                 setText('rowDbOnDeck' .. i, string.format(
-                    '  %-3s    %+5d m    %+4d m    %s',
-                    r.modex, r.along, r.across, zone))
+                    '  %-8s  %+5d m  %+4d m   %s',
+                    r.modex:sub(1, 8), r.along, r.across, zone))
             else
                 setText('rowDbOnDeck' .. i, '')
             end
         end
 
-        -- Modex slot positions on the deck silhouette (16 slots).
-        -- v1.3-beta27: HORIZONTAL deck — BOW = right, PORT = top.
-        --   along  +200 (bow)   → x=470   along -200 (stern) → x=66
-        --   across -50 (port)   → y=124   across +50 (stbd)  → y=228
+        -- Deck spots — blip dot at the true deck position + an id label,
+        -- decluttered so parked jets don't overlap (HORIZONTAL deck:
+        -- BOW = right, PORT = top; along +200=bow→x470, across +50=stbd→y228).
+        local dplaced = {}
+        local function dfreeY(lx, ly)
+            for _ = 1, 6 do
+                local hit = false
+                for _, p in base.ipairs(dplaced) do
+                    if math.abs(p.x - lx) < 50 and math.abs(p.y - ly) < 12 then hit = true break end
+                end
+                if not hit then break end
+                ly = ly + 12
+            end
+            return ly
+        end
         for i = 1, 16 do
             local r = rows[i]
             if r then
                 local a = r.along
-                if a >  200 then a =  200 end
-                if a < -200 then a = -200 end
+                if a >  200 then a =  200 elseif a < -200 then a = -200 end
                 local cc = r.across
-                if cc >  50 then cc =  50 end
-                if cc < -50 then cc = -50 end
-                local x = math.floor( 66 + (a + 200) * (404 / 400))
-                local y = math.floor(124 + (cc + 50) * (104 / 100))
-                setText('spotDb' .. i, r.modex)
-                setBounds('spotDb' .. i, x, y, 50, 14)
+                if cc >  50 then cc =  50 elseif cc < -50 then cc = -50 end
+                local dxp = math.floor( 66 + (a + 200) * (404 / 400))
+                local dyp = math.floor(124 + (cc + 50) * (104 / 100))
+                setBounds('dbDot' .. i, dxp - 2, dyp - 2, 5, 5)
+                local lx = dxp + 6
+                local ly = dfreeY(lx, dyp - 6)
+                table.insert(dplaced, { x = lx, y = ly })
+                setText('spotDb' .. i, r.modex:sub(1, 8))
+                setBounds('spotDb' .. i, lx, ly, 56, 13)
             else
+                setBounds('dbDot' .. i, -300, -300, 5, 5)
                 setText('spotDb' .. i, '')
-                setBounds('spotDb' .. i, -200, -200, 50, 14)
+                setBounds('spotDb' .. i, -300, -300, 56, 13)
             end
         end
     end
@@ -1359,7 +1376,7 @@ return 'ERR|' .. tostring(resQ)
             logInfo('bridge probe: present')
         else
             carrier.bridgeStatus = 'missing'
-            -- v1.3-beta27: radar/roster data comes from the mission query and
+            -- v1.3-beta28: radar/roster data comes from the mission query and
             -- works unpatched.  Only the BUTTONS (beacons/wind/lights/
             -- broadcasts) need the embedded bridge.
             setStatus('Mission NOT PATCHED — control buttons will not respond.\n' ..
@@ -1425,14 +1442,14 @@ return 'ERR|' .. tostring(resQ)
             wireButton(name, flag)
         end
 
-        -- tab buttons (v1.3-beta27: 5 tabs)
+        -- tab buttons (v1.3-beta28: 5 tabs)
         wireClick('btnTabCarrier',  function() showTab('carrier')  end)
         wireClick('btnTabMarshall', function() showTab('marshall') end)
         wireClick('btnTabTower',    function() showTab('tower')    end)
         wireClick('btnTabLso',      function() showTab('lso')      end)
         wireClick('btnTabDeckboss', function() showTab('deckboss') end)
 
-        -- (v1.3-beta27's runtime image overlay removed in beta22: dxgui's
+        -- (v1.3-beta28's runtime image overlay removed in beta22: dxgui's
         -- picture loader does not load a bkg.file via runtime setSkin — the
         -- call succeeds but nothing renders.  Rings are now solid overlapping
         -- dots instead.)
@@ -1523,7 +1540,7 @@ return 'ERR|' .. tostring(resQ)
             logInfo('RESET CAM (NVG 0%)')
         end)
 
-        -- v1.3-beta27: WIRE / DECK / ZOOM were retired in beta4, but the hook
+        -- v1.3-beta28: WIRE / DECK / ZOOM were retired in beta4, but the hook
         -- was still writing carriergui_wire/foul/zoom.txt — so the patched
         -- PLATCameraUI kept forcing the desired wire (=3) / foul deck / FOV
         -- every frame, overriding DCS's own PLAT readout.  Stop writing them;
@@ -1579,7 +1596,7 @@ return 'ERR|' .. tostring(resQ)
         wireClick('btnCharlieBroadcast', function()
             setFlagValue('cg_charlie_min', carrier.charlieMin)
             fireFlag(201)
-            -- v1.3-beta27: flip every HOLDing aircraft to CHARLIE'D in the
+            -- v1.3-beta28: flip every HOLDing aircraft to CHARLIE'D in the
             -- mission-query state (the query chunk owns the roster state now).
             base.pcall(function()
                 net.dostring_in('server',
@@ -1656,7 +1673,7 @@ return 'ERR|' .. tostring(resQ)
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v1.3-beta27)')
+    logInfo('hook loaded (v1.3-beta28)')
 end
 
 local ok, err = pcall(load)

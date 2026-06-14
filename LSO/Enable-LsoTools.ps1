@@ -64,12 +64,19 @@ $suffixes = @(
 Write-Host 'Searching for DCS install...'
 $candidates = @()
 foreach ($d in $drives) {
+    # Skip drive letters that aren't ready (empty card readers, USB slots,
+    # disconnected network drives).  Without this guard, Join-Path / Test-Path
+    # throw DriveNotFoundException on a not-ready drive (e.g. F:) and abort the
+    # whole patch before it runs.
+    if (-not (Test-Path "${d}:\" -ErrorAction SilentlyContinue)) { continue }
     foreach ($s in $suffixes) {
         $p = "${d}:\$s"
-        if (Test-Path (Join-Path $p 'Bazar\shaders\MissionEditor\gui.fx')) {
-            Write-Host "  FOUND: $p" -ForegroundColor Green
-            $candidates += $p
-        }
+        try {
+            if (Test-Path "$p\Bazar\shaders\MissionEditor\gui.fx" -ErrorAction SilentlyContinue) {
+                Write-Host "  FOUND: $p" -ForegroundColor Green
+                $candidates += $p
+            }
+        } catch { }
     }
 }
 if (-not $candidates) {

@@ -8,7 +8,7 @@
 ; Hooks\, Patcher\ (incl. python\), and LSO\ subtrees ready to ship.
 
 #define MyAppName        "CarrierGUI"
-#define MyAppVersion     "1.3-beta22"
+#define MyAppVersion     "1.3-beta23"
 #define MyAppPublisher   "ExpertFett"
 #define MyAppURL         "https://github.com/ExpertFett/CarrierGUI"
 #define MyAppExeBase     "CarrierGUI-Setup-v" + MyAppVersion

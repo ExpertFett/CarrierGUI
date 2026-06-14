@@ -32,11 +32,16 @@ $suffixes = @(
 )
 $candidates = @()
 foreach ($d in $drives) {
+    # Skip not-ready drives (see Enable-LsoTools): Join-Path throws
+    # DriveNotFoundException on e.g. an empty F: card reader.
+    if (-not (Test-Path "${d}:\" -ErrorAction SilentlyContinue)) { continue }
     foreach ($s in $suffixes) {
         $p = "${d}:\$s"
-        if (Test-Path (Join-Path $p 'Bazar\shaders\MissionEditor\gui.fx')) {
-            $candidates += $p
-        }
+        try {
+            if (Test-Path "$p\Bazar\shaders\MissionEditor\gui.fx" -ErrorAction SilentlyContinue) {
+                $candidates += $p
+            }
+        } catch { }
     }
 }
 

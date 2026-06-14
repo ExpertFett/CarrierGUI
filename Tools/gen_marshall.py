@@ -159,7 +159,13 @@ emit(f'    c["mCell" .. r .. "_" .. ccol] = lbl("", _cx[ccol], {TTOP+TROWH}+(r-1
 emit('  end')
 emit('end')
 emit('')
-emit('c.lblMarStatus = lbl("(no inbound traffic)", PAD, 834, W - PAD*2, CapSkin, 16)')
+emit('c.lblMarStatus = lbl("(no inbound traffic)", PAD, 812, W - PAD*2, CapSkin, 16)')
+emit('')
+emit('-- recovery CASE broadcast buttons (also on the CARRIER tab)')
+emit('c.lblMarCaseHdr = lbl("RECOVERY CASE", PAD, 836, 250, CapSkin, 16)')
+emit(f'c.btnCaseM1 = btn("CASE I",   {6+(114+6)*0}, 858, 114)')
+emit(f'c.btnCaseM2 = btn("CASE II",  {6+(114+6)*1}, 858, 114)')
+emit(f'c.btnCaseM3 = btn("CASE III", {6+(114+6)*2}, 858, 114)')
 emit('')
 
 section = '\n'.join(L) + '\n'

@@ -1,4 +1,4 @@
--- CarrierGUI dialog layout  (v1.3-beta23 — 5-tab skeleton)
+-- CarrierGUI dialog layout  (v1.3-beta24 — 5-tab skeleton)
 -- Loaded by carrier-gui-hook.lua via DialogLoader.spawnDialogFromFile.
 -- The hook wires each btn* child and toggles tab visibility.
 --
@@ -41,7 +41,7 @@ local LabelSkin  = mkLabelSkin("0xfbb941ff", 14)   -- section headers (amber)
 local ValueSkin  = mkLabelSkin("0xffffffff", 16)   -- stepper values (white)
 local CapSkin    = mkLabelSkin("0xccccccff", 13)   -- captions (grey)
 
--- v1.3-beta23: ALL non-base skins declared up front so every tab section can
+-- v1.3-beta24: ALL non-base skins declared up front so every tab section can
 -- reference them (latent forward-ref bug in beta5 made TOWER rows fall back
 -- to LabelSkin silently — that's why the panel "looked like the old version").
 local SubSkin     = mkLabelSkin("0xccccccff", 16)
@@ -66,7 +66,7 @@ local CarrierMark = mkLabelSkin("0xff8040ff", 18)   -- carrier centre dot (amber
 local SpotSkin    = mkLabelSkin("0xffff00ff", 14)   -- modex labels (bright yellow)
 local RadarLbl    = mkLabelSkin("0xb8c8d8ff", 12)   -- range/alt scale ticks
 
--- v1.3-beta23 Z-ORDER SCHEME (zindex):
+-- v1.3-beta24 Z-ORDER SCHEME (zindex):
 --   0 = whole-panel dark backdrop
 --   1 = scope/deck base fills
 --   2 = secondary fills (angled deck strip, island, elevators)
@@ -103,7 +103,7 @@ local function lbl(text, x, y, w, skin, h)
 end
 
 -- ---------------------------------------------------------------------------
--- v1.3-beta23 DRAWING PRIMITIVES — copied from the stock Supercarrier dialogs
+-- v1.3-beta24 DRAWING PRIMITIVES — copied from the stock Supercarrier dialogs
 -- (FLOLS.dlg): a skin state can carry a ["bkg"] block of nine cell colours,
 -- which renders the widget as a SOLID FILLED RECTANGLE — no image file, no
 -- font involved.  Combined with params ["angle"] + ["pivotPoint"] (also used
@@ -145,6 +145,7 @@ local ELEV_SKIN      = mkSolidSkin("0x303a40ff")   -- elevator plates
 local CAT_SKIN       = mkSolidSkin("0x9a8838ff")   -- catapult tracks (dull yellow)
 local SHIP_MARK_SKIN = mkSolidSkin("0xcc8030ff")   -- own-ship marker (amber)
 local TRANSPARENT_SKIN = mkSolidSkin("0x00000000") -- fully transparent (image-overlay placeholder)
+local CONTACT_SKIN     = mkSolidSkin("0xffe000ff") -- radar contact blip (bright yellow)
 
 local function solidW(x, y, w, h, skin, z)
     return {
@@ -197,7 +198,7 @@ local c = dialog.children
 c.bgPanel = solidW(2, 32, W - 4, H - 36, PANEL_BG_SKIN, 0)
 
 -- ---------------------------------------------------------------- TAB BAR ---
--- v1.3-beta23: 5 tabs across the top in a wider (540 px) window.
+-- v1.3-beta24: 5 tabs across the top in a wider (540 px) window.
 -- Each tab = 100 wide, 6 px gap. Total span: 5*100 + 4*6 = 524 < 540-PAD*2.
 c.btnTabCarrier  = btn("CARRIER",  PAD + (100+6)*0, 4, 100)
 c.btnTabMarshall = btn("MARSHALL", PAD + (100+6)*1, 4, 100)
@@ -253,7 +254,7 @@ c.btnWind4h   = btn("4h",   PAD + (wb+4)*5, y, wb)
 c.btnWind8h   = btn("8h",   PAD + (wb+4)*6, y, wb)
 
 -- ================================================================= TOWER TAB ==
--- v1.3-beta23: layout top → bottom:
+-- v1.3-beta24: layout top → bottom:
 --   1. Mini overhead radar (left) + side view (right)  y=30..160
 --   2. STACK / CHARLIE'D / COMMENCING rosters          y=170..580
 --   3. Existing broadcast controls                     y=600..830
@@ -779,9 +780,10 @@ c.lblMRS  = lbl("S", 266, 356, 14, RadarLbl, 12)
 c.lblMRE  = lbl("E", 424, 198, 14, RadarLbl, 12)
 c.lblMRW  = lbl("W", 106, 198, 14, RadarLbl, 12)
 
--- aircraft scatter slots on the scope (hook positions by brg/nm)
+-- aircraft contacts: dot (true posn) + datablock label (hook positions)
 for i = 1, 12 do
-    c["rowCcz" .. i] = lbl("", -300, -300, 60, SpotSkin, 14)
+    c["cczDot" .. i] = solidW(-300, -300, 5, 5, CONTACT_SKIN, 4)
+    c["rowCcz" .. i] = lbl("", -300, -300, 66, SpotSkin, 13)
 end
 
 -- ── radio readout (one scripted marshal call) ─────────────────────
@@ -849,7 +851,7 @@ c.lblMarStatus = lbl("(no inbound traffic)", PAD, 834, W - PAD*2, CapSkin, 16)
 
 
 -- ============================================================= DECKBOSS TAB ==
--- v1.3-beta23: rotated so BOW = top, STERN = bottom, PORT = left, STBD = right
+-- v1.3-beta24: rotated so BOW = top, STERN = bottom, PORT = left, STBD = right
 -- (standard top-down view).  The deck silhouette is painted with box-drawing
 -- character widgets at port/stbd/bow/stern edges — dxgui has no line/rect
 -- primitives so each character is its own Static widget.  Zone labels sit
@@ -942,7 +944,7 @@ c.lblDbCongaHint  = lbl("(path overlay disabled in beta — preview only)",
 --   5. RECOVERY EVENTS — last 3 LSO prompts (CASE III monitor still wired).
 
 -- ── CASE I PATTERN ──────────────────────────────────────────
--- v1.3-beta23: racetrack visual.  Landmark labels at fixed pattern points,
+-- v1.3-beta24: racetrack visual.  Landmark labels at fixed pattern points,
 -- carrier marker at the trap position, aircraft slot pool the hook moves
 -- to each plane's current point.  90° corners at BREAK and at 90→groove.
 c.lblPatHdr      = lbl("CASE I OVERHEAD  ·  port racetrack",  PAD,  30, W - PAD*2, LabelSkin, 18)

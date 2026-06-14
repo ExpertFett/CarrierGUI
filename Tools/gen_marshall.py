@@ -77,9 +77,12 @@ emit(f'c.lblMRS  = lbl("S", {CX-4}, {CY+REDGE+2}, 14, RadarLbl, 12)')
 emit(f'c.lblMRE  = lbl("E", {CX+REDGE+6}, {CY-8}, 14, RadarLbl, 12)')
 emit(f'c.lblMRW  = lbl("W", {CX-REDGE-16}, {CY-8}, 14, RadarLbl, 12)')
 emit('')
-emit('-- aircraft scatter slots on the scope (hook positions by brg/nm)')
+# aircraft contacts: a blip DOT (true position) + a datablock label (modex +
+# altitude); the hook declutters the labels so groups don't pile up.
+emit('-- aircraft contacts: dot (true posn) + datablock label (hook positions)')
 emit('for i = 1, 12 do')
-emit('    c["rowCcz" .. i] = lbl("", -300, -300, 60, SpotSkin, 14)')
+emit('    c["cczDot" .. i] = solidW(-300, -300, 5, 5, CONTACT_SKIN, 4)')
+emit('    c["rowCcz" .. i] = lbl("", -300, -300, 66, SpotSkin, 13)')
 emit('end')
 emit('')
 

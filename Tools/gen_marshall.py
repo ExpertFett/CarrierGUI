@@ -133,7 +133,8 @@ TROWH  = 17
 TNROW  = 13
 TBOT   = TTOP + (TNROW + 1) * TROWH    # +1 for header row
 # column x-edges within the table (6 columns): MODEX ALT RNG BRG ANG EAT
-colx = [TX, TX+50, TX+96, TX+140, TX+182, TX+222, TX+TW]
+# MODEX widened to fit AI callsigns (Wizard11) as well as 3-digit modexes.
+colx = [TX, TX+62, TX+106, TX+148, TX+188, TX+226, TX+TW]
 emit(f'c.lblMTblHdr = lbl("MARSHAL STACK  ·  auto-assigned", {TX}, {THDR_Y}, 290, LabelSkin, 16)')
 # outer border
 emit(f'c.mTblBT = solidW({TX}, {TTOP}, {TW}, 1, SCOPE_RG_SKIN, 3)')

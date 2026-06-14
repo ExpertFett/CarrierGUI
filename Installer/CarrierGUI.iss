@@ -8,7 +8,7 @@
 ; Hooks\, Patcher\ (incl. python\), and LSO\ subtrees ready to ship.
 
 #define MyAppName        "CarrierGUI"
-#define MyAppVersion     "1.3-beta20"
+#define MyAppVersion     "1.3-beta21"
 #define MyAppPublisher   "ExpertFett"
 #define MyAppURL         "https://github.com/ExpertFett/CarrierGUI"
 #define MyAppExeBase     "CarrierGUI-Setup-v" + MyAppVersion
@@ -69,6 +69,7 @@ Name: "{%USERPROFILE}\Saved Games\DCS\Scripts\Hooks"
 ; ---- Hook files: into Saved Games (per-user) -----------------------------
 Source: "{#SrcStaging}\Hooks\carrier-gui-hook.lua";   DestDir: "{%USERPROFILE}\Saved Games\DCS\Scripts\Hooks"; Components: hook; Flags: ignoreversion
 Source: "{#SrcStaging}\Hooks\carrier-gui.dlg";        DestDir: "{%USERPROFILE}\Saved Games\DCS\Scripts\Hooks"; Components: hook; Flags: ignoreversion
+Source: "{#SrcStaging}\Hooks\radar_scope.tga";        DestDir: "{%USERPROFILE}\Saved Games\DCS\Scripts\Hooks"; Components: hook; Flags: ignoreversion
 
 ; ---- Patcher (incl. bundled Python) into Program Files -------------------
 Source: "{#SrcStaging}\Patcher\*";                    DestDir: "{app}\Patcher"; Components: patcher; Flags: ignoreversion recursesubdirs createallsubdirs

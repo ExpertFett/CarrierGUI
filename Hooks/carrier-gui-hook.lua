@@ -853,40 +853,8 @@ local function load()
         carrier.shipFB        = tonumber(s.fb) or carrier.shipFB
         carrier.shipTod       = tonumber(s.tod) or carrier.shipTod
         carrier.shipId        = tonumber(s.id) or carrier.shipId
-        -- elevator platform / door animation args (server-authoritative)
-        local function splitNums(str)
-            if not str then return nil end
-            local t = {}
-            for v in str:gmatch('[^,]+') do t[#t + 1] = tonumber(v) end
-            return (#t > 0) and t or nil
-        end
-        local newElev  = splitNums(s.elev)
-        local newDoors = splitNums(s.elevd)
-        -- ELEVATOR MOVEMENT DETECTOR (v1.4 research instrument).
-        -- These args come from the MISSION (server) state, so a change here is
-        -- authoritative — the elevator moved for every client, not just us.
-        -- Stock DCS drives them from the AI deck cycle: the Nimitz ship DB
-        -- (USS_Nimitz_RunwaysAndRoutes.lua GT.Elevators) declares elevators
-        -- 1/2/3 as DESPAWN and elevator 4 as SPAWN routes to the hangar deck.
-        -- Logged (not drawn) so it costs nothing until we build UI for it.
-        if newElev then
-            local prev = carrier.elevArgs
-            if prev then
-                for i = 1, #newElev do
-                    local a, b = prev[i] or 0, newElev[i] or 0
-                    if math.abs(a - b) > 0.01 then
-                        logInfo(string.format(
-                            'ELEVATOR %d MOVED %.3f -> %.3f (server-authoritative; doors=%s)',
-                            i, a, b, s.elevd or '?'))
-                    end
-                end
-            else
-                logInfo('elevator args (baseline): ' .. (s.elev or '?') ..
-                        '  doors: ' .. (s.elevd or '?'))
-            end
-        end
-        carrier.elevArgs  = newElev  or carrier.elevArgs
-        carrier.elevDoors = newDoors or carrier.elevDoors
+        -- (elevator args now come from pollElevatorArgs, which is independent of
+        -- data mode so the instrument works even sitting on the login tab)
         -- Live weather → cloud/vis text used by the marshal call AND the blurb.
         carrier.wxCloudDens = tonumber(s.cloud_dens) or carrier.wxCloudDens
         carrier.wxCloudBase = tonumber(s.cloud_base) or carrier.wxCloudBase
@@ -1115,25 +1083,8 @@ local okQ, resQ = pcall(function()
     -- setElevatorCommand(shipId, ...).  Unit:getID() is the sim object id the
     -- AirBoss screens key their room by.
     pcall(function() shipLines[#shipLines + 1] = 'id=' .. tostring(carrier:getID()) end)
-    -- ELEVATOR STATE (v1.4): read the deck-elevator animation arguments straight
-    -- off the model.  Arg numbers come from the stock ship DB
-    -- (CoreMods/tech/USS_Nimitz/Database/USS_CVN_7X.lua):
-    --   elevators       = {57, 58, 59, 60}
-    --   elevators_doors = {47, 48, 53, 54}
-    -- This runs in the MISSION (server) state, so these are the AUTHORITATIVE
-    -- values every client sees — if they move here, they moved for everyone.
-    -- Pure read (getDrawArgumentValue): sanctioned API, IC-safe, no file edits.
-    pcall(function()
-        local ea, da = {}, {}
-        for _, a in pairs({57, 58, 59, 60}) do
-            ea[#ea + 1] = string.format('%.3f', carrier:getDrawArgumentValue(a) or 0)
-        end
-        for _, a in pairs({47, 48, 53, 54}) do
-            da[#da + 1] = string.format('%.3f', carrier:getDrawArgumentValue(a) or 0)
-        end
-        shipLines[#shipLines + 1] = 'elev='  .. table.concat(ea, ',')
-        shipLines[#shipLines + 1] = 'elevd=' .. table.concat(da, ',')
-    end)
+    -- (elevator animation args are read by the standalone CG_ELEV_QUERY poller,
+    -- which runs regardless of login/data mode — see pollElevatorArgs)
 
     local gotWind = false
     pcall(function()
@@ -1444,6 +1395,97 @@ return 'ERR|' .. tostring(resQ)
 
     -- Query results cache, refreshed at 1 Hz by runMissionQuery().
     carrier.q = { ship = '', stack = '', ccz = '', pattern = '', deck = '' }
+
+    -- ── ELEVATOR RESEARCH INSTRUMENT (v1.4) ──────────────────────────────
+    -- Deliberately standalone: it does NOT go through runMissionQuery, so it
+    -- keeps working while the panel is still on the login tab (dataMode nil)
+    -- and in Olympus mode.  Runs in the MISSION (server) state, so the values
+    -- are AUTHORITATIVE — if an arg moves here it moved for every client.
+    -- Arg numbers are from the stock ship DB (USS_CVN_7X.lua):
+    --   elevators = {57,58,59,60}   elevators_doors = {47,48,53,54}
+    -- Stock DCS drives these from the AI deck cycle (GT.Elevators in
+    -- USS_Nimitz_RunwaysAndRoutes.lua: 1/2/3 = DESPAWN, 4 = SPAWN).
+    -- Pure getDrawArgumentValue reads: sanctioned API, IC-safe.
+    local CG_ELEV_QUERY = [==[
+local okE, resE = pcall(function()
+    local cv = nil
+    for _, side in pairs({coalition.side.BLUE, coalition.side.RED, coalition.side.NEUTRAL}) do
+        local gs = coalition.getGroups(side, Group.Category.SHIP)
+        if gs then
+            for _, g in pairs(gs) do
+                if g:isExist() then
+                    for _, u in pairs(g:getUnits() or {}) do
+                        if u:isExist() then
+                            local tn = u:getTypeName() or ''
+                            if tn:find('CVN') or tn:find('Stennis') or tn:find('VINSON') or tn:find('Forrestal') then
+                                cv = u
+                                break
+                            end
+                        end
+                    end
+                end
+                if cv then break end
+            end
+        end
+        if cv then break end
+    end
+    if not cv then return 'NOCV' end
+    local e, d = {}, {}
+    for _, a in pairs({57, 58, 59, 60}) do
+        e[#e + 1] = string.format('%.3f', cv:getDrawArgumentValue(a) or 0)
+    end
+    for _, a in pairs({47, 48, 53, 54}) do
+        d[#d + 1] = string.format('%.3f', cv:getDrawArgumentValue(a) or 0)
+    end
+    return table.concat(e, ',') .. '|' .. table.concat(d, ',')
+end)
+if okE then return tostring(resE) end
+return 'ERR|' .. tostring(resE)
+]==]
+
+    local function elevNums(s)
+        local t = {}
+        for v in tostring(s):gmatch('[^,]+') do t[#t + 1] = tonumber(v) or 0 end
+        return t
+    end
+
+    local function pollElevatorArgs()
+        local ok, res = base.pcall(function()
+            return net.dostring_in('server', CG_ELEV_QUERY)
+        end)
+        if not ok or base.type(res) ~= 'string' or res == '' then return end
+        if res == 'NOCV' then
+            if not carrier.elevNoCvLogged then
+                carrier.elevNoCvLogged = true
+                logInfo('elevator poll: no carrier in mission yet')
+            end
+            return
+        end
+        if res:sub(1, 4) == 'ERR|' then
+            if not carrier.elevErrLogged then
+                carrier.elevErrLogged = true
+                logErr('elevator poll failed: ' .. res:sub(5, 160))
+            end
+            return
+        end
+        local es, ds = res:match('^([^|]*)|(.*)$')
+        if not es then return end
+        local cur = elevNums(es)
+        local prev = carrier.elevArgs
+        if prev then
+            for i = 1, #cur do
+                local a, b = prev[i] or 0, cur[i] or 0
+                if math.abs(a - b) > 0.01 then
+                    logInfo(string.format(
+                        'ELEVATOR %d MOVED %.3f -> %.3f  (doors=%s)', i, a, b, ds))
+                end
+            end
+        else
+            logInfo('elevator args (baseline): ' .. es .. '  doors: ' .. ds)
+        end
+        carrier.elevArgs  = cur
+        carrier.elevDoors = elevNums(ds)
+    end
 
     local function runMissionQuery()
         -- OLYMPUS mode (primary): the in-hook client owns the picture — copy
@@ -3538,6 +3580,10 @@ return 'ERR|' .. tostring(resQ)
         -- 1 Hz: run the mission query, then refresh every data display.
         if (carrier.shipStateReadAt or 0) + 1.0 < now then
             carrier.shipStateReadAt = now
+            -- Elevator instrument FIRST and unconditionally: it must run even
+            -- when dataMode is nil (still on the login tab), which is exactly
+            -- the case that produced a silent no-op on the first test run.
+            base.pcall(pollElevatorArgs)
             base.pcall(runMissionQuery)
             base.pcall(readShipState)
             -- Olympus mode: backfill QNH/weather/wind from the client's own

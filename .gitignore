@@ -25,3 +25,14 @@ desktop.ini
 Thumbs.db
 .DS_Store
 *~
+
+# Machine-local agent/relay config (real endpoints + tokens; .example.json are the templates)
+*.local.json
+
+# Installer / patcher transcripts
+LSO/*-log.txt
+LSO/*-install-log.txt
+LSO/*-uninstall-log.txt
+
+# Stray pasted screenshots
+LSO/image-*.png

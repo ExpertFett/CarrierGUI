@@ -1,22 +1,36 @@
--- CarrierGUI dialog layout  (v1.3-beta29 — 5-tab skeleton)
+-- CarrierGUI dialog layout  (v1.3-beta56 — login + 4-tab + LIVE rescale + tacview LSO)
 -- Loaded by carrier-gui-hook.lua via DialogLoader.spawnDialogFromFile.
 -- The hook wires each btn* child and toggles tab visibility.
 --
--- v1.3 layout: 5 tabs across the top.
---   CARRIER   — F10 menu controls (lights, beacons, wind) — UNCHANGED in beta1
---   MARSHALL  — NEW. CCZ 60nm radar + radio readout (placeholder in beta1)
---   TOWER     — RENAMED from old MARSHALL. CASE / Charlie / stack broadcasts
---   LSO       — PLAT NVG + camera controls. UNCHANGED in beta1 (overhead
---               pattern + drop-of-Wire/Deck/Zoom arrives in beta4)
---   DECKBOSS  — NEW. Top-down deck view (placeholder in beta1)
+-- beta50 layout: a LOGIN front door + 4 tabs + OUT (logout) button.
+--   LOGIN     — Olympus host/port/password (EditBoxes) + CONNECT, or
+--               LOCAL / HOST MODE for the classic SP/listen-host path.
+--               Owns the window until logged in; tab bar hidden.
+--   MARSHALL  — CCZ 60nm radar + radio readout + stack/table + wind/CASE/broadcast
+--   TOWER     — marshal-stack manager (CASE I circle / CASE III racetrack)
+--   LSO       — pattern radar + groove timer + PLAT NVG + ship/events/sequence
+--   DECKBOSS  — top-down deck image + live overlay + lights/beacons (SHIP SYSTEMS)
+--   (CARRIER + ELEVATOR tabs retired; their controls moved as noted above.)
 --
 -- Panel widened from 380→540 to make room for the radars in later betas.
 
 local W = 540       -- window width  (was 380 in v1.2)
-local H = 900       -- window height (was 800 in beta5; bumped for radar overlays)
+local H = 940       -- window height (beta43: +40 for the LSO ON APPROACH list)
 local BTN_W = 72    -- standard button width
 local BTN_H = 26    -- standard button height
 local PAD = 6
+
+-- ── UI SCALE ────────────────────────────────────────────────────────────────
+-- Pure-arithmetic scaling baked into every constructor below — the DialogLoader
+-- environment has NO globals (no io/pcall/pairs), which is why the previous
+-- file-reading scale block killed the whole dialog.  The HOOK owns the file
+-- I/O: its UI SIZE button rewrites the line below in place; next spawn builds
+-- at that size.  Keep the marker comment EXACTLY — the hook pattern-matches it.
+local SCALE = 1.00 -- CARRIERGUI_UI_SCALE
+local function S(v)
+    local r = v * SCALE + 0.5
+    return r - (r % 1)
+end
 
 local ButtonSkin = { ["params"] = { ["name"] = "buttonSkin" } }
 
@@ -29,7 +43,7 @@ local function mkLabelSkin(color, size)
                     ["text"] = {
                         ["color"]      = color or "0xfbb941ff",
                         ["font"]       = "DejaVuLGCSansCondensed-Bold.ttf",
-                        ["lineHeight"] = size or 14,
+                        ["lineHeight"] = S(size or 14),
                     },
                 },
             },
@@ -54,7 +68,7 @@ local RowSkinMon  = {
                 ["text"] = {
                     ["color"]      = "0xe0e0e0ff",
                     ["font"]       = "DejaVuLGCSansCondensed.ttf",
-                    ["lineHeight"] = 14,
+                    ["lineHeight"] = S(14),
                 },
             },
         },
@@ -75,7 +89,7 @@ local RadarLbl    = mkLabelSkin("0xb8c8d8ff", 12)   -- range/alt scale ticks
 local function btn(text, x, y, w, skin)
     return {
         ["params"] = {
-            ["bounds"]  = { ["h"] = BTN_H, ["w"] = w or BTN_W, ["x"] = x, ["y"] = y },
+            ["bounds"]  = { ["h"] = S(BTN_H), ["w"] = S(w or BTN_W), ["x"] = S(x), ["y"] = S(y) },
             ["enabled"] = true,
             ["text"]    = text,
             ["tooltip"] = "",
@@ -90,7 +104,7 @@ end
 local function lbl(text, x, y, w, skin, h)
     return {
         ["params"] = {
-            ["bounds"]  = { ["h"] = h or 18, ["w"] = w or 200, ["x"] = x, ["y"] = y },
+            ["bounds"]  = { ["h"] = S(h or 18), ["w"] = S(w or 200), ["x"] = S(x), ["y"] = S(y) },
             ["enabled"] = true,
             ["text"]    = text,
             ["tooltip"] = "",
@@ -146,12 +160,13 @@ local CAT_SKIN       = mkSolidSkin("0x9a8838ff")   -- catapult tracks (dull yell
 local SHIP_MARK_SKIN = mkSolidSkin("0xcc8030ff")   -- own-ship marker (amber)
 local TRANSPARENT_SKIN = mkSolidSkin("0x00000000") -- fully transparent (image-overlay placeholder)
 local CONTACT_SKIN     = mkSolidSkin("0xffe000ff") -- radar contact blip (bright yellow)
+local DECK_BLIP_SKIN   = mkSolidSkin("0x20e0ffff") -- DECKBOSS aircraft blip (bright cyan — pops on the busy deck image)
 
 local function solidW(x, y, w, h, skin, z)
     return {
         ["params"] = {
             ["angle"]      = 0,
-            ["bounds"]     = { ["h"] = h, ["w"] = w, ["x"] = x, ["y"] = y },
+            ["bounds"]     = { ["h"] = S(h), ["w"] = S(w), ["x"] = S(x), ["y"] = S(y) },
             -- enabled=true: disabled statics ignore setVisible(), which let
             -- LSO/DECKBOSS drawings bleed across tabs (beta10 field bug).
             ["enabled"]    = true,
@@ -173,19 +188,24 @@ end
 local function seg(x, y, w, h, angle)
     local t = solidW(x, y, w, h, SCOPE_RG_SKIN, 3)
     t.params.angle = angle
-    t.params.pivotPoint = { ["x"] = w / 2, ["y"] = h / 2 }
+    t.params.pivotPoint = { ["x"] = t.params.bounds.w / 2, ["y"] = t.params.bounds.h / 2 }
     return t
 end
 
 dialog = {
     ["children"] = {},
     ["params"] = {
-        ["bounds"]  = { ["h"] = H, ["w"] = W, ["x"] = 200, ["y"] = 100 },
-        ["enabled"] = true,
-        ["text"]    = "Carrier Control",
-        ["tooltip"] = "",
-        ["visible"] = false,            -- hook flips to true after creation
-        ["zindex"]  = 0,
+        ["bounds"]     = { ["h"] = S(H), ["w"] = S(W), ["x"] = 200, ["y"] = 100 },
+        ["enabled"]    = true,
+        ["text"]       = "Carrier Control",
+        ["tooltip"]    = "",
+        ["visible"]    = false,         -- hook flips to true after creation
+        ["zindex"]     = 0,
+        -- resizable = the kneeboard-style drag grip.  The frame alone can't
+        -- reflow content (drag shows a grey box) — but the HOOK watches the
+        -- frame size and on release rebuilds the whole panel at the dragged
+        -- width (live rescale, no restart).
+        ["resizable"]  = true,
     },
     ["skin"] = { ["params"] = { ["name"] = "windowSkin" } },
     ["type"] = "Window",
@@ -198,328 +218,423 @@ local c = dialog.children
 c.bgPanel = solidW(2, 32, W - 4, H - 36, PANEL_BG_SKIN, 0)
 
 -- ---------------------------------------------------------------- TAB BAR ---
--- v1.3-beta29: 5 tabs across the top in a wider (540 px) window.
--- Each tab = 100 wide, 6 px gap. Total span: 5*100 + 4*6 = 524 < 540-PAD*2.
-c.btnTabCarrier  = btn("CARRIER",  PAD + (100+6)*0, 4, 100)
-c.btnTabMarshall = btn("MARSHALL", PAD + (100+6)*1, 4, 100)
-c.btnTabTower    = btn("TOWER",    PAD + (100+6)*2, 4, 100)
-c.btnTabLso      = btn("LSO",      PAD + (100+6)*3, 4, 100)
-c.btnTabDeckboss = btn("DECKBOSS", PAD + (100+6)*4, 4, 100)
+-- beta50: 4 tabs + a small LOG OUT button.  The tab bar is HIDDEN until the
+-- user logs in (Olympus) or picks local mode — the LOGIN tab owns the window
+-- until then.  4*118 + 3*6 = 490; OUT at 502 (32 wide) ends 534 = W-PAD.
+local TAB_W, TAB_GAP = 118, 6
+c.btnTabMarshall = btn("MARSHALL", PAD + (TAB_W+TAB_GAP)*0, 4, TAB_W)
+c.btnTabTower    = btn("TOWER",    PAD + (TAB_W+TAB_GAP)*1, 4, TAB_W)
+c.btnTabLso      = btn("LSO",      PAD + (TAB_W+TAB_GAP)*2, 4, TAB_W)
+c.btnTabDeckboss = btn("DECKBOSS", PAD + (TAB_W+TAB_GAP)*3, 4, TAB_W)
+c.btnLogout      = btn("OUT",      502, 4, 32)
 
--- =============================================================== CARRIER TAB ==
-local y = 40
-c.lblLights         = lbl("LIGHTS", PAD, y)
-y = y + 22
-c.btnLightsOff      = btn("Off",      PAD + (BTN_W+PAD)*0, y)
-c.btnLightsAuto     = btn("Auto",     PAD + (BTN_W+PAD)*1, y)
-c.btnLightsNav      = btn("Nav",      PAD + (BTN_W+PAD)*2, y)
-c.btnLightsLaunch   = btn("Launch",   PAD + (BTN_W+PAD)*3, y)
-y = y + BTN_H + PAD
-c.btnLightsRecovery = btn("Recovery", PAD, y, BTN_W*2 + PAD)
+-- =============================================================== LOGIN TAB ==
+-- beta50: Olympus login IS the front door.  Enter the squad's Olympus host +
+-- Game-master password (same login as Olympus / OPT Live), press CONNECT, and
+-- the login tab disappears — replaced by the standard tabs, fed live from
+-- Olympus (full picture, no mission patch, no agents).  LOCAL / HOST MODE
+-- keeps the classic behavior for SP / listen-host (reads the local mission).
+-- EditBox shaped exactly like the stock ME dialogs (DateTime.dlg): type
+-- "EditBox", skin "editBoxNew", dark translucent field background.
+local function edit(text, x, y, w, password)
+    return {
+        ["params"] = {
+            ["acceptDecimalPoint"] = false,
+            ["bounds"]  = { ["h"] = S(28), ["w"] = S(w), ["x"] = S(x), ["y"] = S(y) },
+            ["enabled"] = true,
+            ["multiline"] = false,
+            ["numeric"] = false,
+            ["password"] = password or false,
+            ["text"]    = text or "",
+            ["textWrapping"] = true,
+            ["tooltip"] = "",
+            ["visible"] = true,
+            ["zindex"]  = 4,
+        },
+        ["skin"] = {
+            ["params"] = { ["name"] = "editBoxNew" },
+            ["states"] = {
+                ["released"] = {
+                    [2] = {
+                        ["bkg"] = {
+                            ["center_bottom"] = "0x00000080",
+                            ["center_top"]    = "0x00000080",
+                            ["left_bottom"]   = "0x00000080",
+                            ["left_center"]   = "0x00000080",
+                            ["left_top"]      = "0x00000080",
+                            ["right_bottom"]  = "0x00000080",
+                            ["right_center"]  = "0x00000080",
+                            ["right_top"]     = "0x00000080",
+                        },
+                    },
+                },
+            },
+        },
+        ["type"] = "EditBox",
+    }
+end
 
-y = y + BTN_H + PAD*2
-c.lblTacan          = lbl("TACAN", PAD, y)
-y = y + 22
-c.btnTacanOn        = btn("On",  PAD + (BTN_W+PAD)*0, y)
-c.btnTacanOff       = btn("Off", PAD + (BTN_W+PAD)*1, y)
+c.lblLoginHdr  = lbl("CONNECT TO MOTHER", PAD, 48, 400, LabelSkin, 20)
+c.lblLoginSub  = lbl("Log in to your squad's DCS Olympus server -", PAD, 76, W - PAD*2, CapSkin, 14)
+c.lblLoginSub2 = lbl("same address + Game master password as Olympus / OPT Live.", PAD, 93, W - PAD*2, CapSkin, 14)
 
-y = y + BTN_H + PAD*2
-c.lblIcls           = lbl("ICLS", PAD, y)
-y = y + 22
-c.btnIclsOn         = btn("On",  PAD + (BTN_W+PAD)*0, y)
-c.btnIclsOff        = btn("Off", PAD + (BTN_W+PAD)*1, y)
+c.lblHostCap = lbl("HOST / IP", PAD, 124, 200, CapSkin, 14)
+c.edHost     = edit("", PAD, 142, 296)
+c.lblPortCap = lbl("PORT", 320, 124, 80, CapSkin, 14)
+c.edPort     = edit("3000", 320, 142, 100)
 
-y = y + BTN_H + PAD*2
-c.lblLink4          = lbl("LINK 4", PAD, y)
-y = y + 22
-c.btnLink4On        = btn("On",  PAD + (BTN_W+PAD)*0, y)
-c.btnLink4Off       = btn("Off", PAD + (BTN_W+PAD)*1, y)
+c.lblPassCap = lbl("GAME MASTER PASSWORD", PAD, 184, 300, CapSkin, 14)
+c.edPass     = edit("", PAD, 202, 414, true)   -- masked
 
-y = y + BTN_H + PAD*2
-c.lblAcls           = lbl("ACLS", PAD, y)
-y = y + 22
-c.btnAclsOn         = btn("On",  PAD + (BTN_W+PAD)*0, y)
-c.btnAclsOff        = btn("Off", PAD + (BTN_W+PAD)*1, y)
+c.btnConnect   = btn("CONNECT", PAD, 248, 250)
+c.btnConnect.params.bounds.h = S(40)
+c.btnLocalMode = btn("LOCAL / HOST MODE", 272, 248, 262)
+c.btnLocalMode.params.bounds.h = S(40)
 
-y = y + BTN_H + PAD*2
-c.lblWind           = lbl("TURN INTO WIND", PAD, y, 250)
-y = y + 22
-local wb = 48
-c.btnWindStop = btn("Stop", PAD + (wb+4)*0, y, wb)
-c.btnWind30m  = btn("30m",  PAD + (wb+4)*1, y, wb)
-c.btnWind60m  = btn("60m",  PAD + (wb+4)*2, y, wb)
-c.btnWind90m  = btn("90m",  PAD + (wb+4)*3, y, wb)
-c.btnWind2h   = btn("2h",   PAD + (wb+4)*4, y, wb)
-c.btnWind4h   = btn("4h",   PAD + (wb+4)*5, y, wb)
-c.btnWind8h   = btn("8h",   PAD + (wb+4)*6, y, wb)
+c.lblLoginStatus = lbl("", PAD, 304, W - PAD*2, ValueSkin, 18)
 
-y = y + BTN_H + PAD*2
-c.lblCarCase = lbl("RECOVERY CASE", PAD, y, 250)
-y = y + 22
-c.btnCaseC1 = btn("CASE I",   PAD + (114+PAD)*0, y, 114)
-c.btnCaseC2 = btn("CASE II",  PAD + (114+PAD)*1, y, 114)
-c.btnCaseC3 = btn("CASE III", PAD + (114+PAD)*2, y, 114)
+c.lblLoginHelp1 = lbl("CONNECT   - live picture from Olympus on ANY server (no patching).", PAD, 344, W - PAD*2, CapSkin, 14)
+c.lblLoginHelp2 = lbl("LOCAL     - classic mode: reads the mission on THIS machine (SP or host).", PAD, 362, W - PAD*2, CapSkin, 14)
+c.lblLoginHelp3 = lbl("PORT      - 3000 (Olympus web port) or 4512 (backend) depending on setup.", PAD, 380, W - PAD*2, CapSkin, 14)
+
+-- UI scale picker (VR readability): cycles 75/100/125/150%, takes effect on
+-- the next DCS start / mission load (the whole dialog is rebuilt at that size).
+c.btnUiScale    = btn("UI SIZE: 100%", PAD, 420, 200)
+c.lblUiScaleCap = lbl("applies instantly - or drag the window corner to resize", 216, 426, 318, CapSkin, 14)
 
 -- ================================================================= TOWER TAB ==
--- v1.3-beta29: layout top → bottom:
---   1. Mini overhead radar (left) + side view (right)  y=30..160
---   2. STACK / CHARLIE'D / COMMENCING rosters          y=170..580
---   3. Existing broadcast controls                     y=600..830
--- Mini-radar slot widgets (twrOh*, twrSv*) start off-screen; the hook
--- repositions them every poll from carriergui_stack.txt.
+-- v1.3-beta31: CASE I marshal-stack manager.  Generated by Tools/gen_tower_stack.py.
+--   overhead 5 nm circle (boat on the RIGHT edge = pt 1; CCW 2=top 3=left 4=bottom)
+--   + side-view angels ladder + STACK / CHARLIE'D / COMMENCING bordered tables.
+--   Click a STACK row to Charlie it (panel only); pt-3 crossing auto-commences.
 
--- --- Mini overhead radar (carrier at centre, 25nm scale, left half) ----------
-c.lblTwrOhHdr   = lbl("MARSHAL STACK  ·  6 nm  ·  centred on stack", PAD, 30, 270, CapSkin, 14)
-c.tScopeL  = solidW( 14,  46, 232, 116, SCOPE_BG_SKIN, 1)
-c.tBordLT  = solidW( 14,  46, 232,   1, SCOPE_RG_SKIN, 3)
-c.tBordLB  = solidW( 14, 161, 232,   1, SCOPE_RG_SKIN, 3)
-c.tBordLL  = solidW( 14,  46,   1, 116, SCOPE_RG_SKIN, 3)
-c.tBordLR  = solidW(245,  46,   1, 116, SCOPE_RG_SKIN, 3)
-c.tAxH     = solidW( 24, 103, 212,   1, SCOPE_LN_SKIN, 3)
-c.tAxV     = solidW(130,  50,   1, 108, SCOPE_LN_SKIN, 3)
-c.tShip    = solidW(126, 100,   8,   8, SHIP_MARK_SKIN, 4)
--- stack-relative rings: 2 / 4 / 6 nm (generated)
--- stack-scope range rings 2/4/6 nm (solid dots; replaces seg sunburst)
-c.tDotA1 = solidW(146, 101, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA2 = solidW(146, 105, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA3 = solidW(144, 109, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA4 = solidW(142, 112, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA5 = solidW(139, 115, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA6 = solidW(136, 117, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA7 = solidW(132, 119, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA8 = solidW(128, 119, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA9 = solidW(124, 119, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA10 = solidW(120, 117, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA11 = solidW(117, 115, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA12 = solidW(114, 112, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA13 = solidW(112, 109, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA14 = solidW(110, 105, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA15 = solidW(110, 101, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA16 = solidW(110, 97, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA17 = solidW(112, 93, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA18 = solidW(114, 90, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA19 = solidW(117, 87, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA20 = solidW(120, 85, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA21 = solidW(124, 83, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA22 = solidW(128, 83, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA23 = solidW(132, 83, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA24 = solidW(136, 85, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA25 = solidW(139, 87, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA26 = solidW(142, 90, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA27 = solidW(144, 93, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotA28 = solidW(146, 97, 4, 4, SCOPE_RING_SKIN, 3)
+c.lblTwrOhHdr = lbl("MARSHAL STACK  ·  CASE I overhead  ·  5 nm", 6, 24, 300, CapSkin, 14)
 
-c.tDotB1 = solidW(164, 101, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB2 = solidW(164, 105, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB3 = solidW(163, 109, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB4 = solidW(162, 113, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB5 = solidW(161, 116, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB6 = solidW(159, 120, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB7 = solidW(156, 123, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB8 = solidW(154, 126, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB9 = solidW(151, 129, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB10 = solidW(148, 131, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB11 = solidW(144, 133, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB12 = solidW(141, 135, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB13 = solidW(137, 136, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB14 = solidW(133, 137, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB15 = solidW(129, 137, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB16 = solidW(125, 137, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB17 = solidW(121, 136, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB18 = solidW(117, 135, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB19 = solidW(114, 134, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB20 = solidW(110, 132, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB21 = solidW(107, 130, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB22 = solidW(104, 127, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB23 = solidW(101, 125, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB24 = solidW(98, 122, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB25 = solidW(96, 118, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB26 = solidW(95, 115, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB27 = solidW(93, 111, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB28 = solidW(92, 107, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB29 = solidW(92, 103, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB30 = solidW(92, 99, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB31 = solidW(92, 95, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB32 = solidW(93, 91, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB33 = solidW(95, 87, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB34 = solidW(96, 84, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB35 = solidW(98, 80, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB36 = solidW(101, 77, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB37 = solidW(104, 75, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB38 = solidW(107, 72, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB39 = solidW(110, 70, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB40 = solidW(114, 68, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB41 = solidW(117, 67, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB42 = solidW(121, 66, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB43 = solidW(125, 65, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB44 = solidW(129, 65, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB45 = solidW(133, 65, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB46 = solidW(137, 66, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB47 = solidW(141, 67, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB48 = solidW(144, 69, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB49 = solidW(148, 71, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB50 = solidW(151, 73, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB51 = solidW(154, 76, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB52 = solidW(156, 79, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB53 = solidW(159, 82, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB54 = solidW(161, 86, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB55 = solidW(162, 89, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB56 = solidW(163, 93, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotB57 = solidW(164, 97, 4, 4, SCOPE_RING_SKIN, 3)
+-- overhead circle scope (boat on the far-right edge)
+c.tcBg = solidW(14, 44, 258, 258, SCOPE_BG_SKIN, 1)
+c.tcBT = solidW(14, 44, 258, 1, SCOPE_RG_SKIN, 3)
+c.tcBB = solidW(14, 302, 258, 1, SCOPE_RG_SKIN, 3)
+c.tcBL = solidW(14, 44, 1, 258, SCOPE_RG_SKIN, 3)
+c.tcBR = solidW(272, 44, 1, 258, SCOPE_RG_SKIN, 3)
+c.tcAxH = solidW(22, 173, 242, 1, SCOPE_LN_SKIN, 2)
+c.tcAxV = solidW(143, 52, 1, 242, SCOPE_LN_SKIN, 2)
 
-c.tDotC1 = solidW(182, 101, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC2 = solidW(182, 105, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC3 = solidW(181, 109, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC4 = solidW(181, 113, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC5 = solidW(180, 117, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC6 = solidW(178, 121, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC7 = solidW(177, 124, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC8 = solidW(175, 128, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC9 = solidW(173, 131, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC10 = solidW(170, 134, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC11 = solidW(168, 137, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC12 = solidW(165, 140, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC13 = solidW(162, 143, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC14 = solidW(159, 145, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC15 = solidW(156, 147, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC16 = solidW(152, 149, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC17 = solidW(148, 151, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC18 = solidW(145, 152, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC19 = solidW(141, 153, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC20 = solidW(137, 154, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC21 = solidW(133, 155, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC22 = solidW(129, 155, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC23 = solidW(125, 155, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC24 = solidW(121, 155, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC25 = solidW(117, 154, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC26 = solidW(113, 153, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC27 = solidW(109, 152, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC28 = solidW(106, 150, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC29 = solidW(102, 148, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC30 = solidW(99, 146, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC31 = solidW(95, 144, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC32 = solidW(92, 142, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC33 = solidW(89, 139, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC34 = solidW(87, 136, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC35 = solidW(84, 133, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC36 = solidW(82, 129, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC37 = solidW(80, 126, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC38 = solidW(78, 122, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC39 = solidW(77, 119, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC40 = solidW(76, 115, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC41 = solidW(75, 111, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC42 = solidW(74, 107, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC43 = solidW(74, 103, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC44 = solidW(74, 99, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC45 = solidW(74, 95, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC46 = solidW(75, 91, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC47 = solidW(76, 87, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC48 = solidW(77, 83, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC49 = solidW(78, 80, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC50 = solidW(80, 76, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC51 = solidW(82, 73, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC52 = solidW(84, 69, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC53 = solidW(87, 66, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC54 = solidW(89, 63, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC55 = solidW(92, 60, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC56 = solidW(95, 58, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC57 = solidW(99, 56, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC58 = solidW(102, 54, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC59 = solidW(106, 52, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC60 = solidW(109, 50, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC61 = solidW(113, 49, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC62 = solidW(117, 48, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC63 = solidW(121, 47, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC64 = solidW(125, 47, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC65 = solidW(129, 47, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC66 = solidW(133, 47, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC67 = solidW(137, 48, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC68 = solidW(141, 49, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC69 = solidW(145, 50, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC70 = solidW(148, 51, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC71 = solidW(152, 53, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC72 = solidW(156, 55, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC73 = solidW(159, 57, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC74 = solidW(162, 59, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC75 = solidW(165, 62, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC76 = solidW(168, 65, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC77 = solidW(170, 68, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC78 = solidW(173, 71, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC79 = solidW(175, 74, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC80 = solidW(177, 78, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC81 = solidW(178, 81, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC82 = solidW(180, 85, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC83 = solidW(181, 89, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC84 = solidW(181, 93, 4, 4, SCOPE_RING_SKIN, 3)
-c.tDotC85 = solidW(182, 97, 4, 4, SCOPE_RING_SKIN, 3)
-c.lblTwrOhN     = lbl("N",                             125,     50, 14, RadarLbl, 12)
-c.lblTwrOhE     = lbl("E",                             234,     98, 14, RadarLbl, 12)
-c.lblTwrOhS     = lbl("S",                             125,    148, 14, RadarLbl, 12)
-c.lblTwrOhW     = lbl("W",                              18,     98, 14, RadarLbl, 12)
-c.lblTwrOhCv    = lbl("STK",                           136,    104, 30, CarrierMark, 12)
-for i = 1, 10 do
-    c["tOhDot" .. i] = solidW(-300, -300, 5, 5, CONTACT_SKIN, 4)
-    c["twrOh"  .. i] = lbl("", -300, -300, 60, SpotSkin, 13)
-end
+-- 5 nm holding ring (solid dots)
+c.tcRing1 = solidW(257, 171, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing2 = solidW(256, 185, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing3 = solidW(254, 199, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing4 = solidW(249, 212, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing5 = solidW(244, 225, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing6 = solidW(236, 237, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing7 = solidW(228, 248, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing8 = solidW(218, 258, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing9 = solidW(207, 266, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing10 = solidW(195, 274, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing11 = solidW(182, 279, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing12 = solidW(169, 284, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing13 = solidW(155, 286, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing14 = solidW(141, 287, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing15 = solidW(127, 286, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing16 = solidW(113, 284, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing17 = solidW(100, 279, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing18 = solidW(87, 274, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing19 = solidW(75, 266, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing20 = solidW(64, 258, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing21 = solidW(54, 248, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing22 = solidW(46, 237, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing23 = solidW(38, 225, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing24 = solidW(33, 212, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing25 = solidW(28, 199, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing26 = solidW(26, 185, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing27 = solidW(25, 171, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing28 = solidW(26, 157, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing29 = solidW(28, 143, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing30 = solidW(33, 130, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing31 = solidW(38, 117, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing32 = solidW(46, 105, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing33 = solidW(54, 94, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing34 = solidW(64, 84, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing35 = solidW(75, 76, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing36 = solidW(87, 68, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing37 = solidW(100, 63, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing38 = solidW(113, 58, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing39 = solidW(127, 56, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing40 = solidW(141, 55, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing41 = solidW(155, 56, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing42 = solidW(169, 58, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing43 = solidW(182, 63, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing44 = solidW(195, 68, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing45 = solidW(207, 76, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing46 = solidW(218, 84, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing47 = solidW(228, 94, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing48 = solidW(236, 105, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing49 = solidW(244, 117, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing50 = solidW(249, 130, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing51 = solidW(254, 143, 4, 4, SCOPE_RING_SKIN, 3)
+c.tcRing52 = solidW(256, 157, 4, 4, SCOPE_RING_SKIN, 3)
 
--- --- Mini side view (altitude profile, right half) ---------------------------
-c.lblTwrSvHdr   = lbl("ALT  ·  0 → 15k ft",            290,    30, 250, CapSkin,  14)
-c.tScopeR  = solidW(280,  46, 246, 116, SCOPE_BG_SKIN, 1)
-c.tBordRT  = solidW(280,  46, 246,   1, SCOPE_RG_SKIN, 3)
-c.tBordRB  = solidW(280, 161, 246,   1, SCOPE_RG_SKIN, 3)
-c.tBordRL  = solidW(280,  46,   1, 116, SCOPE_RG_SKIN, 3)
-c.tBordRR  = solidW(525,  46,   1, 116, SCOPE_RG_SKIN, 3)
--- altitude gridlines at 15/12/9/6/3 k
-c.tGrid1   = solidW(318,  56, 200,   1, SCOPE_LN_SKIN, 3)
-c.tGrid2   = solidW(318,  80, 200,   1, SCOPE_LN_SKIN, 3)
-c.tGrid3   = solidW(318, 104, 200,   1, SCOPE_LN_SKIN, 3)
-c.tGrid4   = solidW(318, 128, 200,   1, SCOPE_LN_SKIN, 3)
-c.tGrid5   = solidW(318, 152, 200,   1, SCOPE_LN_SKIN, 3)
-c.lblTwrSvA15   = lbl("15k",                           288,    50, 26, RadarLbl, 12)
-c.lblTwrSvA12   = lbl("12k",                           288,    74, 26, RadarLbl, 12)
-c.lblTwrSvA9    = lbl(" 9k",                           288,    98, 26, RadarLbl, 12)
-c.lblTwrSvA6    = lbl(" 6k",                           288,   122, 26, RadarLbl, 12)
-c.lblTwrSvA3    = lbl(" 3k",                           288,   146, 26, RadarLbl, 12)
-for i = 1, 10 do
-    c["twrSv" .. i] = lbl("", -200, -200, 40, SpotSkin, 14)
-end
+-- cardinal point markers + numbers (1 = boat, CCW)
+c.tcPt2 = solidW(139, 53, 8, 8, SCOPE_RING_SKIN, 3)
+c.tcPt3 = solidW(23, 169, 8, 8, SCOPE_RING_SKIN, 3)
+c.tcPt4 = solidW(139, 285, 8, 8, SCOPE_RING_SKIN, 3)
+c.tcPtN1 = lbl("1", 239, 157, 16, SpotSkin, 14)
+c.tcPtN2 = lbl("2", 149, 63, 16, SpotSkin, 14)
+c.tcPtN3 = lbl("3", 35, 157, 16, SpotSkin, 14)
+c.tcPtN4 = lbl("4", 149, 271, 16, SpotSkin, 14)
+c.tcShip = solidW(254, 168, 10, 10, SHIP_MARK_SKIN, 4)
 
--- --- STACK roster (HOLD aircraft, sorted alt-desc) ----------------------------
-c.lblTwrStackHdr  = lbl("STACK  ·  holding",                            PAD, 170, W - PAD*2, LabelSkin, 18)
-c.lblTwrStackCols = lbl("  #  MODEX    ALT     IAS  IN-STK   LAST PT",  PAD, 190, W - PAD*2, CapSkin,   16)
+-- contact blips + datablocks (hook repositions every poll)
+c.tcDot1 = solidW(-300, -300, 5, 5, CONTACT_SKIN, 4)
+c.tcLbl1 = lbl("", -300, -300, 64, SpotSkin, 13)
+c.tcDot2 = solidW(-300, -300, 5, 5, CONTACT_SKIN, 4)
+c.tcLbl2 = lbl("", -300, -300, 64, SpotSkin, 13)
+c.tcDot3 = solidW(-300, -300, 5, 5, CONTACT_SKIN, 4)
+c.tcLbl3 = lbl("", -300, -300, 64, SpotSkin, 13)
+c.tcDot4 = solidW(-300, -300, 5, 5, CONTACT_SKIN, 4)
+c.tcLbl4 = lbl("", -300, -300, 64, SpotSkin, 13)
+c.tcDot5 = solidW(-300, -300, 5, 5, CONTACT_SKIN, 4)
+c.tcLbl5 = lbl("", -300, -300, 64, SpotSkin, 13)
+c.tcDot6 = solidW(-300, -300, 5, 5, CONTACT_SKIN, 4)
+c.tcLbl6 = lbl("", -300, -300, 64, SpotSkin, 13)
+c.tcDot7 = solidW(-300, -300, 5, 5, CONTACT_SKIN, 4)
+c.tcLbl7 = lbl("", -300, -300, 64, SpotSkin, 13)
+c.tcDot8 = solidW(-300, -300, 5, 5, CONTACT_SKIN, 4)
+c.tcLbl8 = lbl("", -300, -300, 64, SpotSkin, 13)
+c.tcDot9 = solidW(-300, -300, 5, 5, CONTACT_SKIN, 4)
+c.tcLbl9 = lbl("", -300, -300, 64, SpotSkin, 13)
+c.tcDot10 = solidW(-300, -300, 5, 5, CONTACT_SKIN, 4)
+c.tcLbl10 = lbl("", -300, -300, 64, SpotSkin, 13)
+c.tcDot11 = solidW(-300, -300, 5, 5, CONTACT_SKIN, 4)
+c.tcLbl11 = lbl("", -300, -300, 64, SpotSkin, 13)
+c.tcDot12 = solidW(-300, -300, 5, 5, CONTACT_SKIN, 4)
+c.tcLbl12 = lbl("", -300, -300, 64, SpotSkin, 13)
+
+-- side-view angels ladder (2 .. 10 k ft)
+c.lblTwrSvHdr = lbl("ANGELS  ·  2 → 10 k ft", 280, 24, 240, CapSkin, 14)
+c.tcSvBg = solidW(280, 44, 246, 258, SCOPE_BG_SKIN, 1)
+c.tcSvBT = solidW(280, 44, 246, 1, SCOPE_RG_SKIN, 3)
+c.tcSvBB = solidW(280, 302, 246, 1, SCOPE_RG_SKIN, 3)
+c.tcSvBL = solidW(280, 44, 1, 258, SCOPE_RG_SKIN, 3)
+c.tcSvBR = solidW(526, 44, 1, 258, SCOPE_RG_SKIN, 3)
+c.tcSvG1 = solidW(314, 56, 202, 1, SCOPE_LN_SKIN, 2)
+c.tcSvA1 = lbl("10k", 286, 49, 26, RadarLbl, 12)
+c.tcSvG2 = solidW(314, 85, 202, 1, SCOPE_LN_SKIN, 2)
+c.tcSvA2 = lbl(" 9k", 286, 78, 26, RadarLbl, 12)
+c.tcSvG3 = solidW(314, 114, 202, 1, SCOPE_LN_SKIN, 2)
+c.tcSvA3 = lbl(" 8k", 286, 107, 26, RadarLbl, 12)
+c.tcSvG4 = solidW(314, 144, 202, 1, SCOPE_LN_SKIN, 2)
+c.tcSvA4 = lbl(" 7k", 286, 137, 26, RadarLbl, 12)
+c.tcSvG5 = solidW(314, 173, 202, 1, SCOPE_LN_SKIN, 2)
+c.tcSvA5 = lbl(" 6k", 286, 166, 26, RadarLbl, 12)
+c.tcSvG6 = solidW(314, 202, 202, 1, SCOPE_LN_SKIN, 2)
+c.tcSvA6 = lbl(" 5k", 286, 195, 26, RadarLbl, 12)
+c.tcSvG7 = solidW(314, 232, 202, 1, SCOPE_LN_SKIN, 2)
+c.tcSvA7 = lbl(" 4k", 286, 225, 26, RadarLbl, 12)
+c.tcSvG8 = solidW(314, 261, 202, 1, SCOPE_LN_SKIN, 2)
+c.tcSvA8 = lbl(" 3k", 286, 254, 26, RadarLbl, 12)
+c.tcSvG9 = solidW(314, 290, 202, 1, SCOPE_LN_SKIN, 2)
+c.tcSvA9 = lbl(" 2k", 286, 283, 26, RadarLbl, 12)
+c.tcSv1 = lbl("", -200, -200, 44, SpotSkin, 14)
+c.tcSv2 = lbl("", -200, -200, 44, SpotSkin, 14)
+c.tcSv3 = lbl("", -200, -200, 44, SpotSkin, 14)
+c.tcSv4 = lbl("", -200, -200, 44, SpotSkin, 14)
+c.tcSv5 = lbl("", -200, -200, 44, SpotSkin, 14)
+c.tcSv6 = lbl("", -200, -200, 44, SpotSkin, 14)
+c.tcSv7 = lbl("", -200, -200, 44, SpotSkin, 14)
+c.tcSv8 = lbl("", -200, -200, 44, SpotSkin, 14)
+c.tcSv9 = lbl("", -200, -200, 44, SpotSkin, 14)
+c.tcSv10 = lbl("", -200, -200, 44, SpotSkin, 14)
+
+-- STACK  ·  holding   (C = give Charlie) table
+c.tsHdr = lbl("STACK  ·  holding   (C = give Charlie)", 14, 312, 512, LabelSkin, 18)
+c.tsBT = solidW(14, 332, 512, 1, SCOPE_RG_SKIN, 3)
+c.tsBB = solidW(14, 511, 512, 1, SCOPE_RG_SKIN, 3)
+c.tsBL = solidW(14, 332, 1, 179, SCOPE_RG_SKIN, 3)
+c.tsBR = solidW(526, 332, 1, 179, SCOPE_RG_SKIN, 3)
+c.tsSep = solidW(14, 349, 512, 1, SCOPE_RG_SKIN, 3)
+c.tsV1 = solidW(120, 332, 1, 179, SCOPE_LN_SKIN, 2)
+c.tsV2 = solidW(200, 332, 1, 179, SCOPE_LN_SKIN, 2)
+c.tsV3 = solidW(270, 332, 1, 179, SCOPE_LN_SKIN, 2)
+c.tsV4 = solidW(420, 332, 1, 179, SCOPE_LN_SKIN, 2)
+c.tsH1 = lbl("MODEX", 20, 334, 96, CapSkin, 14)
+c.tsH2 = lbl("ALT", 124, 334, 72, CapSkin, 14)
+c.tsH3 = lbl("GS", 204, 334, 62, CapSkin, 14)
+c.tsH4 = lbl("POINT", 274, 334, 142, CapSkin, 14)
+c.tsH5 = lbl("IN-STK", 424, 334, 52, CapSkin, 14)
+c.tsCell1_1 = lbl("", 20, 352, 96, RowSkinMon, 15)
+c.tsCell1_2 = lbl("", 124, 352, 72, RowSkinMon, 15)
+c.tsCell1_3 = lbl("", 204, 352, 62, RowSkinMon, 15)
+c.tsCell1_4 = lbl("", 274, 352, 142, RowSkinMon, 15)
+c.tsCell1_5 = lbl("", 424, 352, 52, RowSkinMon, 15)
+c.tsBtn1 = btn("C", 480, 350, 40)
+c.tsBtn1.params.bounds.h = S(18)
+c.tsCell2_1 = lbl("", 20, 372, 96, RowSkinMon, 15)
+c.tsCell2_2 = lbl("", 124, 372, 72, RowSkinMon, 15)
+c.tsCell2_3 = lbl("", 204, 372, 62, RowSkinMon, 15)
+c.tsCell2_4 = lbl("", 274, 372, 142, RowSkinMon, 15)
+c.tsCell2_5 = lbl("", 424, 372, 52, RowSkinMon, 15)
+c.tsBtn2 = btn("C", 480, 370, 40)
+c.tsBtn2.params.bounds.h = S(18)
+c.tsCell3_1 = lbl("", 20, 392, 96, RowSkinMon, 15)
+c.tsCell3_2 = lbl("", 124, 392, 72, RowSkinMon, 15)
+c.tsCell3_3 = lbl("", 204, 392, 62, RowSkinMon, 15)
+c.tsCell3_4 = lbl("", 274, 392, 142, RowSkinMon, 15)
+c.tsCell3_5 = lbl("", 424, 392, 52, RowSkinMon, 15)
+c.tsBtn3 = btn("C", 480, 390, 40)
+c.tsBtn3.params.bounds.h = S(18)
+c.tsCell4_1 = lbl("", 20, 412, 96, RowSkinMon, 15)
+c.tsCell4_2 = lbl("", 124, 412, 72, RowSkinMon, 15)
+c.tsCell4_3 = lbl("", 204, 412, 62, RowSkinMon, 15)
+c.tsCell4_4 = lbl("", 274, 412, 142, RowSkinMon, 15)
+c.tsCell4_5 = lbl("", 424, 412, 52, RowSkinMon, 15)
+c.tsBtn4 = btn("C", 480, 410, 40)
+c.tsBtn4.params.bounds.h = S(18)
+c.tsCell5_1 = lbl("", 20, 432, 96, RowSkinMon, 15)
+c.tsCell5_2 = lbl("", 124, 432, 72, RowSkinMon, 15)
+c.tsCell5_3 = lbl("", 204, 432, 62, RowSkinMon, 15)
+c.tsCell5_4 = lbl("", 274, 432, 142, RowSkinMon, 15)
+c.tsCell5_5 = lbl("", 424, 432, 52, RowSkinMon, 15)
+c.tsBtn5 = btn("C", 480, 430, 40)
+c.tsBtn5.params.bounds.h = S(18)
+c.tsCell6_1 = lbl("", 20, 452, 96, RowSkinMon, 15)
+c.tsCell6_2 = lbl("", 124, 452, 72, RowSkinMon, 15)
+c.tsCell6_3 = lbl("", 204, 452, 62, RowSkinMon, 15)
+c.tsCell6_4 = lbl("", 274, 452, 142, RowSkinMon, 15)
+c.tsCell6_5 = lbl("", 424, 452, 52, RowSkinMon, 15)
+c.tsBtn6 = btn("C", 480, 450, 40)
+c.tsBtn6.params.bounds.h = S(18)
+c.tsCell7_1 = lbl("", 20, 472, 96, RowSkinMon, 15)
+c.tsCell7_2 = lbl("", 124, 472, 72, RowSkinMon, 15)
+c.tsCell7_3 = lbl("", 204, 472, 62, RowSkinMon, 15)
+c.tsCell7_4 = lbl("", 274, 472, 142, RowSkinMon, 15)
+c.tsCell7_5 = lbl("", 424, 472, 52, RowSkinMon, 15)
+c.tsBtn7 = btn("C", 480, 470, 40)
+c.tsBtn7.params.bounds.h = S(18)
+c.tsCell8_1 = lbl("", 20, 492, 96, RowSkinMon, 15)
+c.tsCell8_2 = lbl("", 124, 492, 72, RowSkinMon, 15)
+c.tsCell8_3 = lbl("", 204, 492, 62, RowSkinMon, 15)
+c.tsCell8_4 = lbl("", 274, 492, 142, RowSkinMon, 15)
+c.tsCell8_5 = lbl("", 424, 492, 52, RowSkinMon, 15)
+c.tsBtn8 = btn("C", 480, 490, 40)
+c.tsBtn8.params.bounds.h = S(18)
+
+-- CHARLIE'D  ·  cleared   (U = undo) table
+c.tdHdr = lbl("CHARLIE'D  ·  cleared   (U = undo)", 14, 519, 512, LabelSkin, 18)
+c.tdBT = solidW(14, 539, 512, 1, SCOPE_RG_SKIN, 3)
+c.tdBB = solidW(14, 658, 512, 1, SCOPE_RG_SKIN, 3)
+c.tdBL = solidW(14, 539, 1, 119, SCOPE_RG_SKIN, 3)
+c.tdBR = solidW(526, 539, 1, 119, SCOPE_RG_SKIN, 3)
+c.tdSep = solidW(14, 556, 512, 1, SCOPE_RG_SKIN, 3)
+c.tdV1 = solidW(120, 539, 1, 119, SCOPE_LN_SKIN, 2)
+c.tdV2 = solidW(200, 539, 1, 119, SCOPE_LN_SKIN, 2)
+c.tdV3 = solidW(270, 539, 1, 119, SCOPE_LN_SKIN, 2)
+c.tdV4 = solidW(420, 539, 1, 119, SCOPE_LN_SKIN, 2)
+c.tdH1 = lbl("MODEX", 20, 541, 96, CapSkin, 14)
+c.tdH2 = lbl("ALT", 124, 541, 72, CapSkin, 14)
+c.tdH3 = lbl("GS", 204, 541, 62, CapSkin, 14)
+c.tdH4 = lbl("POINT", 274, 541, 142, CapSkin, 14)
+c.tdH5 = lbl("IN-STK", 424, 541, 52, CapSkin, 14)
+c.tdCell1_1 = lbl("", 20, 559, 96, RowSkinMon, 15)
+c.tdCell1_2 = lbl("", 124, 559, 72, RowSkinMon, 15)
+c.tdCell1_3 = lbl("", 204, 559, 62, RowSkinMon, 15)
+c.tdCell1_4 = lbl("", 274, 559, 142, RowSkinMon, 15)
+c.tdCell1_5 = lbl("", 424, 559, 52, RowSkinMon, 15)
+c.tdBtn1 = btn("U", 480, 557, 40)
+c.tdBtn1.params.bounds.h = S(18)
+c.tdCell2_1 = lbl("", 20, 579, 96, RowSkinMon, 15)
+c.tdCell2_2 = lbl("", 124, 579, 72, RowSkinMon, 15)
+c.tdCell2_3 = lbl("", 204, 579, 62, RowSkinMon, 15)
+c.tdCell2_4 = lbl("", 274, 579, 142, RowSkinMon, 15)
+c.tdCell2_5 = lbl("", 424, 579, 52, RowSkinMon, 15)
+c.tdBtn2 = btn("U", 480, 577, 40)
+c.tdBtn2.params.bounds.h = S(18)
+c.tdCell3_1 = lbl("", 20, 599, 96, RowSkinMon, 15)
+c.tdCell3_2 = lbl("", 124, 599, 72, RowSkinMon, 15)
+c.tdCell3_3 = lbl("", 204, 599, 62, RowSkinMon, 15)
+c.tdCell3_4 = lbl("", 274, 599, 142, RowSkinMon, 15)
+c.tdCell3_5 = lbl("", 424, 599, 52, RowSkinMon, 15)
+c.tdBtn3 = btn("U", 480, 597, 40)
+c.tdBtn3.params.bounds.h = S(18)
+c.tdCell4_1 = lbl("", 20, 619, 96, RowSkinMon, 15)
+c.tdCell4_2 = lbl("", 124, 619, 72, RowSkinMon, 15)
+c.tdCell4_3 = lbl("", 204, 619, 62, RowSkinMon, 15)
+c.tdCell4_4 = lbl("", 274, 619, 142, RowSkinMon, 15)
+c.tdCell4_5 = lbl("", 424, 619, 52, RowSkinMon, 15)
+c.tdBtn4 = btn("U", 480, 617, 40)
+c.tdBtn4.params.bounds.h = S(18)
+c.tdCell5_1 = lbl("", 20, 639, 96, RowSkinMon, 15)
+c.tdCell5_2 = lbl("", 124, 639, 72, RowSkinMon, 15)
+c.tdCell5_3 = lbl("", 204, 639, 62, RowSkinMon, 15)
+c.tdCell5_4 = lbl("", 274, 639, 142, RowSkinMon, 15)
+c.tdCell5_5 = lbl("", 424, 639, 52, RowSkinMon, 15)
+c.tdBtn5 = btn("U", 480, 637, 40)
+c.tdBtn5.params.bounds.h = S(18)
+
+-- COMMENCING  ·  past point 3 table
+c.tmHdr = lbl("COMMENCING  ·  past point 3", 14, 666, 512, LabelSkin, 18)
+c.tmBT = solidW(14, 686, 512, 1, SCOPE_RG_SKIN, 3)
+c.tmBB = solidW(14, 805, 512, 1, SCOPE_RG_SKIN, 3)
+c.tmBL = solidW(14, 686, 1, 119, SCOPE_RG_SKIN, 3)
+c.tmBR = solidW(526, 686, 1, 119, SCOPE_RG_SKIN, 3)
+c.tmSep = solidW(14, 703, 512, 1, SCOPE_RG_SKIN, 3)
+c.tmV1 = solidW(120, 686, 1, 119, SCOPE_LN_SKIN, 2)
+c.tmV2 = solidW(200, 686, 1, 119, SCOPE_LN_SKIN, 2)
+c.tmV3 = solidW(270, 686, 1, 119, SCOPE_LN_SKIN, 2)
+c.tmV4 = solidW(420, 686, 1, 119, SCOPE_LN_SKIN, 2)
+c.tmH1 = lbl("MODEX", 20, 688, 96, CapSkin, 14)
+c.tmH2 = lbl("ALT", 124, 688, 72, CapSkin, 14)
+c.tmH3 = lbl("GS", 204, 688, 62, CapSkin, 14)
+c.tmH4 = lbl("POINT", 274, 688, 142, CapSkin, 14)
+c.tmH5 = lbl("IN-STK", 424, 688, 52, CapSkin, 14)
+c.tmCell1_1 = lbl("", 20, 706, 96, RowSkinMon, 15)
+c.tmCell1_2 = lbl("", 124, 706, 72, RowSkinMon, 15)
+c.tmCell1_3 = lbl("", 204, 706, 62, RowSkinMon, 15)
+c.tmCell1_4 = lbl("", 274, 706, 142, RowSkinMon, 15)
+c.tmCell1_5 = lbl("", 424, 706, 52, RowSkinMon, 15)
+c.tmCell2_1 = lbl("", 20, 726, 96, RowSkinMon, 15)
+c.tmCell2_2 = lbl("", 124, 726, 72, RowSkinMon, 15)
+c.tmCell2_3 = lbl("", 204, 726, 62, RowSkinMon, 15)
+c.tmCell2_4 = lbl("", 274, 726, 142, RowSkinMon, 15)
+c.tmCell2_5 = lbl("", 424, 726, 52, RowSkinMon, 15)
+c.tmCell3_1 = lbl("", 20, 746, 96, RowSkinMon, 15)
+c.tmCell3_2 = lbl("", 124, 746, 72, RowSkinMon, 15)
+c.tmCell3_3 = lbl("", 204, 746, 62, RowSkinMon, 15)
+c.tmCell3_4 = lbl("", 274, 746, 142, RowSkinMon, 15)
+c.tmCell3_5 = lbl("", 424, 746, 52, RowSkinMon, 15)
+c.tmCell4_1 = lbl("", 20, 766, 96, RowSkinMon, 15)
+c.tmCell4_2 = lbl("", 124, 766, 72, RowSkinMon, 15)
+c.tmCell4_3 = lbl("", 204, 766, 62, RowSkinMon, 15)
+c.tmCell4_4 = lbl("", 274, 766, 142, RowSkinMon, 15)
+c.tmCell4_5 = lbl("", 424, 766, 52, RowSkinMon, 15)
+c.tmCell5_1 = lbl("", 20, 786, 96, RowSkinMon, 15)
+c.tmCell5_2 = lbl("", 124, 786, 72, RowSkinMon, 15)
+c.tmCell5_3 = lbl("", 204, 786, 62, RowSkinMon, 15)
+c.tmCell5_4 = lbl("", 274, 786, 142, RowSkinMon, 15)
+c.tmCell5_5 = lbl("", 424, 786, 52, RowSkinMon, 15)
+
+
+
+-- LEVEL-OFF radar (CASE I TOWER, replaces the COMMENCING table): side profile
+-- of the 700-1600 ft band — the commence→break descent gap + the 1200 ft SPIN
+-- pattern.  X = range from Mother (0..4 nm), Y = altitude; reference lines at
+-- 1.5k (band top), 1.2k (spin), 800 (pattern).  Hook plots dots + modex.
+c.lvlHdr = lbl("LEVEL-OFF  ·  commence -> break  ·  spin 1.2k", 14, 666, 440, LabelSkin, 18)
+c.lvlBg = solidW(14, 686, 512, 98, SCOPE_BG_SKIN, 1)
+c.lvlBT = solidW(14, 686, 512, 1, SCOPE_RG_SKIN, 3)
+c.lvlBB = solidW(14, 784, 512, 1, SCOPE_RG_SKIN, 3)
+c.lvlBL = solidW(14, 686, 1, 98, SCOPE_RG_SKIN, 3)
+c.lvlBR = solidW(526, 686, 1, 98, SCOPE_RG_SKIN, 3)
+c.lvlL15 = solidW(15, 695, 511, 1, SCOPE_LN_SKIN, 2)
+c.lvlL12 = solidW(15, 722, 511, 1, SCOPE_LN_SKIN, 2)
+c.lvlL08 = solidW(15, 757, 511, 1, SCOPE_RING_SKIN, 2)
+c.lvlC15 = lbl("1.5k", 18, 687, 40, RadarLbl, 12)
+c.lvlC12 = lbl("1.2k SPIN", 18, 714, 80, RadarLbl, 12)
+c.lvlC08 = lbl("800 PATTERN", 18, 749, 100, RadarLbl, 12)
+c.lvlCR  = lbl("range ->  0 .. 4 nm from Mother", 336, 771, 186, RadarLbl, 12)
 for i = 1, 8 do
-    c["rowTwrStack" .. i] = lbl("", PAD, 208 + (i-1)*15, W - PAD*2, RowSkinMon, 15)
+    c["lvlDot" .. i] = solidW(-300, -300, 5, 5, CONTACT_SKIN, 4)
+    c["lvlLbl" .. i] = lbl("", -300, -300, 64, SpotSkin, 13)
 end
-
--- --- CHARLIE'D roster (cleared to commence) ----------------------------------
-c.lblTwrCharlieHdr  = lbl("CHARLIE'D  ·  cleared to commence",            PAD, 340, W - PAD*2, LabelSkin, 18)
-c.lblTwrCharlieCols = lbl("  #  MODEX    ALT     IAS  IN-STK   LAST PT",  PAD, 360, W - PAD*2, CapSkin,   16)
-for i = 1, 5 do
-    c["rowTwrCharlie" .. i] = lbl("", PAD, 378 + (i-1)*15, W - PAD*2, RowSkinMon, 15)
-end
-
--- --- COMMENCING roster (past commence point) ---------------------------------
-c.lblTwrCommHdr  = lbl("COMMENCING  ·  past commence point",              PAD, 465, W - PAD*2, LabelSkin, 18)
-c.lblTwrCommCols = lbl("  #  MODEX    ALT     IAS  IN-STK   LAST PT",     PAD, 485, W - PAD*2, CapSkin,   16)
-for i = 1, 5 do
-    c["rowTwrComm" .. i] = lbl("", PAD, 503 + (i-1)*15, W - PAD*2, RowSkinMon, 15)
-end
-
--- --- Broadcast controls — big labelled buttons across the bottom ------------
--- (RECOVERY CASE buttons moved to the MARSHALL + CARRIER tabs in beta29.)
-c.lblTwrBcastHdr = lbl("BROADCAST", PAD, 598, W - PAD*2, LabelSkin, 18)
-c.btnMarshalBroadcast = btn("BROADCAST MARSHAL STACK", PAD, 622, W - PAD*2)
-c.btnMarshalBroadcast.params.bounds.h = 36
-
-c.lblTwrCharlieHdr = lbl("CHARLIE / PUSH  (minutes)", PAD, 668, W - PAD*2, CapSkin, 16)
-c.btnCharlie5   = btn("+5",       PAD + (128+6)*0, 690, 128)
-c.btnCharlie10  = btn("+10",      PAD + (128+6)*1, 690, 128)
-c.btnCharlie15  = btn("+15",      PAD + (128+6)*2, 690, 128)
-c.btnCharlieNow = btn("PUSH NOW", PAD + (128+6)*3, 690, 128)
-c.btnCharlie5.params.bounds.h   = 36
-c.btnCharlie10.params.bounds.h  = 36
-c.btnCharlie15.params.bounds.h  = 36
-c.btnCharlieNow.params.bounds.h = 36
 
 -- ============================================================== MARSHALL TAB ==
 -- v1.3-beta16: solid dot rings + one marshal call + MOTHER info + stack + table
@@ -536,345 +651,368 @@ c.mBordR = solidW(524, 54, 2, 304, SCOPE_RG_SKIN, 3)
 c.mCrossV = solidW(270, 58, 1, 296, SCOPE_LN_SKIN, 2)
 c.mCrossH = solidW(122, 206, 296, 1, SCOPE_LN_SKIN, 2)
 
--- range rings at 10 / 25 / 50 nm — SOLID (overlapping dots, z=3)
-c.mDotA1 = solidW(292, 204, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA2 = solidW(292, 208, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA3 = solidW(291, 211, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA4 = solidW(290, 215, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA5 = solidW(287, 219, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA6 = solidW(285, 222, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA7 = solidW(282, 224, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA8 = solidW(278, 226, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA9 = solidW(274, 228, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA10 = solidW(271, 228, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA11 = solidW(266, 228, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA12 = solidW(262, 228, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA13 = solidW(259, 227, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA14 = solidW(255, 225, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA15 = solidW(252, 223, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA16 = solidW(249, 220, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA17 = solidW(246, 217, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA18 = solidW(245, 213, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA19 = solidW(243, 209, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA20 = solidW(243, 206, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA21 = solidW(243, 201, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA22 = solidW(243, 198, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA23 = solidW(245, 194, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA24 = solidW(246, 190, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA25 = solidW(249, 187, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA26 = solidW(252, 184, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA27 = solidW(255, 182, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA28 = solidW(259, 180, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA29 = solidW(262, 179, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA30 = solidW(266, 179, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA31 = solidW(271, 179, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA32 = solidW(274, 179, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA33 = solidW(278, 181, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA34 = solidW(282, 183, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA35 = solidW(285, 185, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA36 = solidW(287, 188, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA37 = solidW(290, 192, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA38 = solidW(291, 196, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotA39 = solidW(292, 199, 5, 5, SCOPE_RING_SKIN, 3)
+-- range rings at 10 / 25 / 50 nm — SOLID dot fallback (z=2, under image)
+c.mDotA1 = solidW(292, 204, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA2 = solidW(292, 208, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA3 = solidW(291, 211, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA4 = solidW(290, 215, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA5 = solidW(287, 219, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA6 = solidW(285, 222, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA7 = solidW(282, 224, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA8 = solidW(278, 226, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA9 = solidW(274, 228, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA10 = solidW(271, 228, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA11 = solidW(266, 228, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA12 = solidW(262, 228, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA13 = solidW(259, 227, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA14 = solidW(255, 225, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA15 = solidW(252, 223, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA16 = solidW(249, 220, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA17 = solidW(246, 217, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA18 = solidW(245, 213, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA19 = solidW(243, 209, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA20 = solidW(243, 206, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA21 = solidW(243, 201, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA22 = solidW(243, 198, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA23 = solidW(245, 194, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA24 = solidW(246, 190, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA25 = solidW(249, 187, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA26 = solidW(252, 184, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA27 = solidW(255, 182, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA28 = solidW(259, 180, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA29 = solidW(262, 179, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA30 = solidW(266, 179, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA31 = solidW(271, 179, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA32 = solidW(274, 179, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA33 = solidW(278, 181, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA34 = solidW(282, 183, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA35 = solidW(285, 185, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA36 = solidW(287, 188, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA37 = solidW(290, 192, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA38 = solidW(291, 196, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotA39 = solidW(292, 199, 5, 5, SCOPE_RING_SKIN, 2)
 
-c.mDotB1 = solidW(330, 204, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB2 = solidW(329, 208, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB3 = solidW(329, 212, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB4 = solidW(328, 215, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB5 = solidW(327, 219, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB6 = solidW(326, 223, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB7 = solidW(325, 227, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB8 = solidW(323, 231, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB9 = solidW(321, 234, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB10 = solidW(319, 238, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB11 = solidW(317, 241, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB12 = solidW(314, 244, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB13 = solidW(312, 247, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB14 = solidW(309, 250, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB15 = solidW(306, 252, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB16 = solidW(302, 255, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB17 = solidW(299, 257, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB18 = solidW(296, 259, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB19 = solidW(292, 260, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB20 = solidW(288, 262, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB21 = solidW(284, 263, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB22 = solidW(280, 264, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB23 = solidW(277, 265, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB24 = solidW(273, 265, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB25 = solidW(269, 265, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB26 = solidW(264, 265, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB27 = solidW(260, 265, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB28 = solidW(257, 265, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB29 = solidW(253, 264, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB30 = solidW(249, 263, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB31 = solidW(245, 261, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB32 = solidW(241, 260, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB33 = solidW(238, 258, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB34 = solidW(234, 256, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB35 = solidW(231, 254, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB36 = solidW(228, 251, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB37 = solidW(225, 248, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB38 = solidW(222, 246, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB39 = solidW(219, 242, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB40 = solidW(217, 239, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB41 = solidW(215, 236, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB42 = solidW(213, 232, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB43 = solidW(211, 229, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB44 = solidW(209, 225, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB45 = solidW(208, 221, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB46 = solidW(207, 217, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB47 = solidW(206, 213, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB48 = solidW(206, 210, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB49 = solidW(206, 206, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB50 = solidW(206, 201, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB51 = solidW(206, 197, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB52 = solidW(206, 194, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB53 = solidW(207, 190, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB54 = solidW(208, 186, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB55 = solidW(209, 182, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB56 = solidW(211, 178, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB57 = solidW(213, 175, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB58 = solidW(215, 171, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB59 = solidW(217, 168, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB60 = solidW(219, 165, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB61 = solidW(222, 161, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB62 = solidW(225, 159, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB63 = solidW(228, 156, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB64 = solidW(231, 153, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB65 = solidW(234, 151, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB66 = solidW(238, 149, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB67 = solidW(241, 147, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB68 = solidW(245, 146, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB69 = solidW(249, 144, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB70 = solidW(253, 143, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB71 = solidW(257, 142, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB72 = solidW(260, 142, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB73 = solidW(264, 142, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB74 = solidW(269, 142, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB75 = solidW(273, 142, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB76 = solidW(277, 142, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB77 = solidW(280, 143, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB78 = solidW(284, 144, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB79 = solidW(288, 145, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB80 = solidW(292, 147, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB81 = solidW(296, 148, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB82 = solidW(299, 150, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB83 = solidW(302, 152, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB84 = solidW(306, 155, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB85 = solidW(309, 157, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB86 = solidW(312, 160, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB87 = solidW(314, 163, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB88 = solidW(317, 166, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB89 = solidW(319, 169, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB90 = solidW(321, 173, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB91 = solidW(323, 176, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB92 = solidW(325, 180, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB93 = solidW(326, 184, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB94 = solidW(327, 188, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB95 = solidW(328, 192, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB96 = solidW(329, 195, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotB97 = solidW(329, 199, 5, 5, SCOPE_RING_SKIN, 3)
+c.mDotB1 = solidW(330, 204, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB2 = solidW(329, 208, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB3 = solidW(329, 212, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB4 = solidW(328, 215, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB5 = solidW(327, 219, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB6 = solidW(326, 223, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB7 = solidW(325, 227, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB8 = solidW(323, 231, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB9 = solidW(321, 234, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB10 = solidW(319, 238, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB11 = solidW(317, 241, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB12 = solidW(314, 244, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB13 = solidW(312, 247, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB14 = solidW(309, 250, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB15 = solidW(306, 252, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB16 = solidW(302, 255, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB17 = solidW(299, 257, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB18 = solidW(296, 259, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB19 = solidW(292, 260, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB20 = solidW(288, 262, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB21 = solidW(284, 263, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB22 = solidW(280, 264, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB23 = solidW(277, 265, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB24 = solidW(273, 265, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB25 = solidW(269, 265, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB26 = solidW(264, 265, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB27 = solidW(260, 265, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB28 = solidW(257, 265, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB29 = solidW(253, 264, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB30 = solidW(249, 263, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB31 = solidW(245, 261, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB32 = solidW(241, 260, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB33 = solidW(238, 258, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB34 = solidW(234, 256, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB35 = solidW(231, 254, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB36 = solidW(228, 251, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB37 = solidW(225, 248, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB38 = solidW(222, 246, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB39 = solidW(219, 242, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB40 = solidW(217, 239, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB41 = solidW(215, 236, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB42 = solidW(213, 232, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB43 = solidW(211, 229, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB44 = solidW(209, 225, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB45 = solidW(208, 221, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB46 = solidW(207, 217, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB47 = solidW(206, 213, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB48 = solidW(206, 210, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB49 = solidW(206, 206, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB50 = solidW(206, 201, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB51 = solidW(206, 197, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB52 = solidW(206, 194, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB53 = solidW(207, 190, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB54 = solidW(208, 186, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB55 = solidW(209, 182, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB56 = solidW(211, 178, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB57 = solidW(213, 175, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB58 = solidW(215, 171, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB59 = solidW(217, 168, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB60 = solidW(219, 165, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB61 = solidW(222, 161, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB62 = solidW(225, 159, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB63 = solidW(228, 156, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB64 = solidW(231, 153, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB65 = solidW(234, 151, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB66 = solidW(238, 149, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB67 = solidW(241, 147, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB68 = solidW(245, 146, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB69 = solidW(249, 144, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB70 = solidW(253, 143, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB71 = solidW(257, 142, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB72 = solidW(260, 142, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB73 = solidW(264, 142, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB74 = solidW(269, 142, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB75 = solidW(273, 142, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB76 = solidW(277, 142, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB77 = solidW(280, 143, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB78 = solidW(284, 144, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB79 = solidW(288, 145, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB80 = solidW(292, 147, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB81 = solidW(296, 148, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB82 = solidW(299, 150, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB83 = solidW(302, 152, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB84 = solidW(306, 155, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB85 = solidW(309, 157, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB86 = solidW(312, 160, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB87 = solidW(314, 163, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB88 = solidW(317, 166, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB89 = solidW(319, 169, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB90 = solidW(321, 173, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB91 = solidW(323, 176, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB92 = solidW(325, 180, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB93 = solidW(326, 184, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB94 = solidW(327, 188, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB95 = solidW(328, 192, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB96 = solidW(329, 195, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotB97 = solidW(329, 199, 5, 5, SCOPE_RING_SKIN, 2)
 
-c.mDotC1 = solidW(390, 204, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC2 = solidW(390, 208, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC3 = solidW(390, 212, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC4 = solidW(390, 215, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC5 = solidW(389, 219, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC6 = solidW(389, 223, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC7 = solidW(388, 227, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC8 = solidW(387, 231, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC9 = solidW(386, 235, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC10 = solidW(385, 239, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC11 = solidW(384, 243, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC12 = solidW(383, 247, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC13 = solidW(381, 250, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC14 = solidW(380, 254, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC15 = solidW(378, 258, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC16 = solidW(376, 261, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC17 = solidW(374, 265, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC18 = solidW(372, 268, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC19 = solidW(370, 272, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC20 = solidW(368, 275, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC21 = solidW(365, 278, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC22 = solidW(363, 281, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC23 = solidW(360, 284, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC24 = solidW(358, 287, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC25 = solidW(355, 290, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC26 = solidW(352, 293, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC27 = solidW(349, 296, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC28 = solidW(346, 298, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC29 = solidW(343, 301, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC30 = solidW(340, 303, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC31 = solidW(336, 305, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC32 = solidW(333, 308, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC33 = solidW(330, 310, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC34 = solidW(326, 312, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC35 = solidW(323, 313, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC36 = solidW(319, 315, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC37 = solidW(315, 317, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC38 = solidW(312, 318, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC39 = solidW(308, 320, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC40 = solidW(304, 321, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC41 = solidW(300, 322, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC42 = solidW(296, 323, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC43 = solidW(292, 324, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC44 = solidW(288, 325, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC45 = solidW(284, 325, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC46 = solidW(280, 326, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC47 = solidW(277, 326, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC48 = solidW(273, 326, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC49 = solidW(269, 326, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC50 = solidW(264, 326, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC51 = solidW(260, 326, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC52 = solidW(257, 326, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC53 = solidW(253, 326, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC54 = solidW(249, 325, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC55 = solidW(245, 324, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC56 = solidW(241, 324, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC57 = solidW(237, 323, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC58 = solidW(233, 322, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC59 = solidW(229, 320, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC60 = solidW(225, 319, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC61 = solidW(222, 318, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC62 = solidW(218, 316, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC63 = solidW(214, 314, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC64 = solidW(211, 313, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC65 = solidW(207, 311, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC66 = solidW(204, 309, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC67 = solidW(200, 307, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC68 = solidW(197, 304, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC69 = solidW(194, 302, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC70 = solidW(191, 299, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC71 = solidW(188, 297, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC72 = solidW(185, 294, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC73 = solidW(182, 292, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC74 = solidW(179, 289, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC75 = solidW(176, 286, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC76 = solidW(173, 283, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC77 = solidW(171, 280, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC78 = solidW(168, 276, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC79 = solidW(166, 273, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC80 = solidW(164, 270, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC81 = solidW(162, 266, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC82 = solidW(160, 263, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC83 = solidW(158, 259, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC84 = solidW(156, 256, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC85 = solidW(155, 252, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC86 = solidW(153, 248, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC87 = solidW(152, 245, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC88 = solidW(150, 241, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC89 = solidW(149, 237, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC90 = solidW(148, 233, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC91 = solidW(147, 229, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC92 = solidW(146, 225, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC93 = solidW(146, 221, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC94 = solidW(145, 217, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC95 = solidW(145, 213, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC96 = solidW(145, 210, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC97 = solidW(145, 206, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC98 = solidW(145, 201, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC99 = solidW(145, 197, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC100 = solidW(145, 194, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC101 = solidW(145, 190, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC102 = solidW(146, 186, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC103 = solidW(146, 182, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC104 = solidW(147, 178, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC105 = solidW(148, 174, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC106 = solidW(149, 170, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC107 = solidW(150, 166, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC108 = solidW(152, 162, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC109 = solidW(153, 159, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC110 = solidW(155, 155, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC111 = solidW(156, 151, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC112 = solidW(158, 148, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC113 = solidW(160, 144, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC114 = solidW(162, 141, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC115 = solidW(164, 137, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC116 = solidW(166, 134, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC117 = solidW(168, 131, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC118 = solidW(171, 127, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC119 = solidW(173, 124, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC120 = solidW(176, 121, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC121 = solidW(179, 118, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC122 = solidW(182, 115, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC123 = solidW(185, 113, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC124 = solidW(188, 110, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC125 = solidW(191, 108, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC126 = solidW(194, 105, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC127 = solidW(197, 103, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC128 = solidW(200, 100, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC129 = solidW(204, 98, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC130 = solidW(207, 96, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC131 = solidW(211, 94, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC132 = solidW(214, 93, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC133 = solidW(218, 91, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC134 = solidW(222, 89, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC135 = solidW(225, 88, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC136 = solidW(229, 87, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC137 = solidW(233, 85, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC138 = solidW(237, 84, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC139 = solidW(241, 83, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC140 = solidW(245, 83, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC141 = solidW(249, 82, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC142 = solidW(253, 81, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC143 = solidW(257, 81, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC144 = solidW(260, 81, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC145 = solidW(264, 81, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC146 = solidW(269, 81, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC147 = solidW(273, 81, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC148 = solidW(277, 81, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC149 = solidW(280, 81, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC150 = solidW(284, 82, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC151 = solidW(288, 82, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC152 = solidW(292, 83, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC153 = solidW(296, 84, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC154 = solidW(300, 85, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC155 = solidW(304, 86, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC156 = solidW(308, 87, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC157 = solidW(312, 89, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC158 = solidW(315, 90, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC159 = solidW(319, 92, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC160 = solidW(323, 94, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC161 = solidW(326, 95, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC162 = solidW(330, 97, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC163 = solidW(333, 99, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC164 = solidW(336, 102, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC165 = solidW(340, 104, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC166 = solidW(343, 106, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC167 = solidW(346, 109, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC168 = solidW(349, 111, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC169 = solidW(352, 114, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC170 = solidW(355, 117, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC171 = solidW(358, 120, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC172 = solidW(360, 123, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC173 = solidW(363, 126, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC174 = solidW(365, 129, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC175 = solidW(368, 132, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC176 = solidW(370, 135, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC177 = solidW(372, 139, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC178 = solidW(374, 142, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC179 = solidW(376, 146, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC180 = solidW(378, 149, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC181 = solidW(380, 153, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC182 = solidW(381, 157, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC183 = solidW(383, 160, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC184 = solidW(384, 164, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC185 = solidW(385, 168, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC186 = solidW(386, 172, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC187 = solidW(387, 176, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC188 = solidW(388, 180, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC189 = solidW(389, 184, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC190 = solidW(389, 188, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC191 = solidW(390, 192, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC192 = solidW(390, 195, 5, 5, SCOPE_RING_SKIN, 3)
-c.mDotC193 = solidW(390, 199, 5, 5, SCOPE_RING_SKIN, 3)
+c.mDotC1 = solidW(390, 204, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC2 = solidW(390, 208, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC3 = solidW(390, 212, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC4 = solidW(390, 215, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC5 = solidW(389, 219, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC6 = solidW(389, 223, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC7 = solidW(388, 227, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC8 = solidW(387, 231, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC9 = solidW(386, 235, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC10 = solidW(385, 239, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC11 = solidW(384, 243, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC12 = solidW(383, 247, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC13 = solidW(381, 250, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC14 = solidW(380, 254, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC15 = solidW(378, 258, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC16 = solidW(376, 261, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC17 = solidW(374, 265, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC18 = solidW(372, 268, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC19 = solidW(370, 272, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC20 = solidW(368, 275, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC21 = solidW(365, 278, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC22 = solidW(363, 281, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC23 = solidW(360, 284, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC24 = solidW(358, 287, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC25 = solidW(355, 290, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC26 = solidW(352, 293, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC27 = solidW(349, 296, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC28 = solidW(346, 298, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC29 = solidW(343, 301, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC30 = solidW(340, 303, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC31 = solidW(336, 305, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC32 = solidW(333, 308, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC33 = solidW(330, 310, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC34 = solidW(326, 312, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC35 = solidW(323, 313, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC36 = solidW(319, 315, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC37 = solidW(315, 317, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC38 = solidW(312, 318, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC39 = solidW(308, 320, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC40 = solidW(304, 321, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC41 = solidW(300, 322, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC42 = solidW(296, 323, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC43 = solidW(292, 324, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC44 = solidW(288, 325, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC45 = solidW(284, 325, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC46 = solidW(280, 326, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC47 = solidW(277, 326, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC48 = solidW(273, 326, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC49 = solidW(269, 326, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC50 = solidW(264, 326, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC51 = solidW(260, 326, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC52 = solidW(257, 326, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC53 = solidW(253, 326, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC54 = solidW(249, 325, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC55 = solidW(245, 324, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC56 = solidW(241, 324, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC57 = solidW(237, 323, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC58 = solidW(233, 322, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC59 = solidW(229, 320, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC60 = solidW(225, 319, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC61 = solidW(222, 318, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC62 = solidW(218, 316, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC63 = solidW(214, 314, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC64 = solidW(211, 313, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC65 = solidW(207, 311, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC66 = solidW(204, 309, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC67 = solidW(200, 307, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC68 = solidW(197, 304, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC69 = solidW(194, 302, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC70 = solidW(191, 299, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC71 = solidW(188, 297, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC72 = solidW(185, 294, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC73 = solidW(182, 292, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC74 = solidW(179, 289, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC75 = solidW(176, 286, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC76 = solidW(173, 283, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC77 = solidW(171, 280, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC78 = solidW(168, 276, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC79 = solidW(166, 273, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC80 = solidW(164, 270, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC81 = solidW(162, 266, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC82 = solidW(160, 263, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC83 = solidW(158, 259, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC84 = solidW(156, 256, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC85 = solidW(155, 252, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC86 = solidW(153, 248, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC87 = solidW(152, 245, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC88 = solidW(150, 241, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC89 = solidW(149, 237, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC90 = solidW(148, 233, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC91 = solidW(147, 229, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC92 = solidW(146, 225, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC93 = solidW(146, 221, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC94 = solidW(145, 217, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC95 = solidW(145, 213, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC96 = solidW(145, 210, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC97 = solidW(145, 206, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC98 = solidW(145, 201, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC99 = solidW(145, 197, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC100 = solidW(145, 194, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC101 = solidW(145, 190, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC102 = solidW(146, 186, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC103 = solidW(146, 182, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC104 = solidW(147, 178, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC105 = solidW(148, 174, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC106 = solidW(149, 170, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC107 = solidW(150, 166, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC108 = solidW(152, 162, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC109 = solidW(153, 159, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC110 = solidW(155, 155, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC111 = solidW(156, 151, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC112 = solidW(158, 148, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC113 = solidW(160, 144, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC114 = solidW(162, 141, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC115 = solidW(164, 137, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC116 = solidW(166, 134, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC117 = solidW(168, 131, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC118 = solidW(171, 127, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC119 = solidW(173, 124, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC120 = solidW(176, 121, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC121 = solidW(179, 118, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC122 = solidW(182, 115, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC123 = solidW(185, 113, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC124 = solidW(188, 110, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC125 = solidW(191, 108, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC126 = solidW(194, 105, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC127 = solidW(197, 103, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC128 = solidW(200, 100, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC129 = solidW(204, 98, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC130 = solidW(207, 96, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC131 = solidW(211, 94, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC132 = solidW(214, 93, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC133 = solidW(218, 91, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC134 = solidW(222, 89, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC135 = solidW(225, 88, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC136 = solidW(229, 87, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC137 = solidW(233, 85, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC138 = solidW(237, 84, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC139 = solidW(241, 83, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC140 = solidW(245, 83, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC141 = solidW(249, 82, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC142 = solidW(253, 81, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC143 = solidW(257, 81, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC144 = solidW(260, 81, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC145 = solidW(264, 81, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC146 = solidW(269, 81, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC147 = solidW(273, 81, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC148 = solidW(277, 81, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC149 = solidW(280, 81, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC150 = solidW(284, 82, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC151 = solidW(288, 82, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC152 = solidW(292, 83, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC153 = solidW(296, 84, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC154 = solidW(300, 85, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC155 = solidW(304, 86, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC156 = solidW(308, 87, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC157 = solidW(312, 89, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC158 = solidW(315, 90, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC159 = solidW(319, 92, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC160 = solidW(323, 94, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC161 = solidW(326, 95, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC162 = solidW(330, 97, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC163 = solidW(333, 99, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC164 = solidW(336, 102, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC165 = solidW(340, 104, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC166 = solidW(343, 106, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC167 = solidW(346, 109, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC168 = solidW(349, 111, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC169 = solidW(352, 114, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC170 = solidW(355, 117, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC171 = solidW(358, 120, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC172 = solidW(360, 123, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC173 = solidW(363, 126, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC174 = solidW(365, 129, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC175 = solidW(368, 132, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC176 = solidW(370, 135, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC177 = solidW(372, 139, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC178 = solidW(374, 142, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC179 = solidW(376, 146, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC180 = solidW(378, 149, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC181 = solidW(380, 153, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC182 = solidW(381, 157, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC183 = solidW(383, 160, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC184 = solidW(384, 164, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC185 = solidW(385, 168, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC186 = solidW(386, 172, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC187 = solidW(387, 176, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC188 = solidW(388, 180, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC189 = solidW(389, 184, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC190 = solidW(389, 188, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC191 = solidW(390, 192, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC192 = solidW(390, 195, 5, 5, SCOPE_RING_SKIN, 2)
+c.mDotC193 = solidW(390, 199, 5, 5, SCOPE_RING_SKIN, 2)
+
+-- radar image overlay (z=3, above dots; hook gates visibility on the TGA)
+do
+  local W9 = "0xffffffff"
+  c.mScopeImg = {
+    ["params"] = { ["bounds"] = { ["x"]=S(16), ["y"]=S(54), ["w"]=S(508), ["h"]=S(304) },
+      ["enabled"] = true, ["visible"] = true, ["zindex"] = 3, ["text"] = "", ["tooltip"] = "" },
+    ["skin"] = { ["params"] = { ["name"] = "staticSkin" }, ["states"] = { ["released"] = { [1] = { ["bkg"] = {
+      ["center_bottom"]=W9, ["center_center"]=W9, ["center_top"]=W9,
+      ["left_bottom"]=W9,   ["left_center"]=W9,   ["left_top"]=W9,
+      ["right_bottom"]=W9,  ["right_center"]=W9,  ["right_top"]=W9,
+      ["file"]   = "mods\\tech\\supercarrier\\platcameraui\\carriergui_radar.tga",
+      ["rect"]   = { ["x1"]=0, ["y1"]=0, ["x2"]=508, ["y2"]=304 },
+      ["insets"] = { ["top"]=0, ["bottom"]=0, ["left"]=0, ["right"]=0 },
+    } } } } },
+    ["type"] = "Static",
+  }
+end
 
 -- own-ship marker (neutral square) + BRC heading vector dots.
 -- The scope is north-up; the heading vector (hook-positioned dots from
 -- centre outward along the ship BRC) shows which way the boat points,
 -- and rotates as the heading changes.
-c.mShip = solidW(266, 202, 8, 8, SHIP_MARK_SKIN, 4)
+c.mShip = solidW(265, 201, 10, 10, SHIP_MARK_SKIN, 4)
 c.lblMRcv = lbl("CV", 278, 204, 30, CarrierMark, 14)
+-- crisp cardinal point markers on the 50 nm ring (TOWER-style bright squares)
+c.mCardN = solidW(266,  81, 8, 8, SCOPE_RING_SKIN, 3)
+c.mCardE = solidW(387, 202, 8, 8, SCOPE_RING_SKIN, 3)
+c.mCardS = solidW(266, 323, 8, 8, SCOPE_RING_SKIN, 3)
+c.mCardW = solidW(145, 202, 8, 8, SCOPE_RING_SKIN, 3)
 for i = 1, 7 do
     c["hdgDot" .. i] = solidW(-300, -300, 4, 4, SHIP_MARK_SKIN, 4)
 end
@@ -887,17 +1025,20 @@ c.lblMRS  = lbl("S", 266, 356, 14, RadarLbl, 12)
 c.lblMRE  = lbl("E", 424, 198, 14, RadarLbl, 12)
 c.lblMRW  = lbl("W", 106, 198, 14, RadarLbl, 12)
 
--- aircraft contacts: dot (true posn) + datablock label (hook positions)
+-- aircraft contacts: dot (true posn) + datablock label (hook positions) +
+-- a 2-dot BEARING LEADER showing each contact's track direction
 for i = 1, 12 do
     c["cczDot" .. i] = solidW(-300, -300, 5, 5, CONTACT_SKIN, 4)
     c["rowCcz" .. i] = lbl("", -300, -300, 66, SpotSkin, 13)
+    c["mvec" .. i .. "a"] = solidW(-300, -300, 3, 3, CONTACT_SKIN, 4)
+    c["mvec" .. i .. "b"] = solidW(-300, -300, 3, 3, CONTACT_SKIN, 4)
 end
 
 -- ── radio readout (one scripted marshal call) ─────────────────────
-c.lblMarRadioHdr = lbl("RADIO READOUT", PAD, 362, W - PAD*2, LabelSkin, 18)
-local CallSkin = mkLabelSkin("0xd8e0c8ff", 13)
+c.lblMarRadioHdr = lbl("RADIO READOUT", PAD, 360, W - PAD*2, LabelSkin, 18)
+local CallSkin = mkLabelSkin("0xd8e0c8ff", 15)
 for i = 1, 5 do
-    c["rowMarCall" .. i] = lbl("", PAD, 384 + (i-1)*15, W - PAD*2, CallSkin, 15)
+    c["rowMarCall" .. i] = lbl("", PAD + 2, 382 + (i-1)*17, W - PAD*2 - 2, CallSkin, 17)
 end
 
 -- ── MOTHER (boat info) ────────────────────────────────────────────
@@ -905,27 +1046,32 @@ c.lblMotherHdr = lbl("MOTHER", PAD, 466, W - PAD*2, LabelSkin, 18)
 c.lblBoat1 = lbl("BRC ---   FB ---   ALT --.--", PAD, 488, W - PAD*2, ValueSkin, 18)
 c.lblBoat2 = lbl("WIND ---/-- kt   ACROSS DECK --", PAD, 508, W - PAD*2, ValueSkin, 18)
 
--- ── marshal stack (left) ──────────────────────────────────────────
-c.lblMarStackHdr = lbl("STACK", PAD, 532, 120, LabelSkin, 18)
-c.sPillL = solidW(100, 566, 2, 240, SCOPE_RG_SKIN, 3)
-c.sPillR = solidW(180, 566, 2, 240, SCOPE_RG_SKIN, 3)
-c.sPillT = solidW(100, 566, 80, 2, SCOPE_RG_SKIN, 3)
-c.sPillB = solidW(100, 806, 82, 2, SCOPE_RG_SKIN, 3)
-c.lblStkAng = lbl("angels", 70, 548, 60, CapSkin, 12)
-c.lblStkA2 = lbl("2", 76, 778, 22, RadarLbl, 13)
-c.sRung2 = solidW(100, 786, 80, 1, SCOPE_LN_SKIN, 2)
-c.lblStkA3 = lbl("3", 76, 738, 22, RadarLbl, 13)
-c.sRung3 = solidW(100, 746, 80, 1, SCOPE_LN_SKIN, 2)
-c.lblStkA4 = lbl("4", 76, 698, 22, RadarLbl, 13)
-c.sRung4 = solidW(100, 706, 80, 1, SCOPE_LN_SKIN, 2)
-c.lblStkA5 = lbl("5", 76, 658, 22, RadarLbl, 13)
-c.sRung5 = solidW(100, 666, 80, 1, SCOPE_LN_SKIN, 2)
-c.lblStkA6 = lbl("6", 76, 618, 22, RadarLbl, 13)
-c.sRung6 = solidW(100, 626, 80, 1, SCOPE_LN_SKIN, 2)
-c.lblStkA7 = lbl("7", 76, 578, 22, RadarLbl, 13)
-c.sRung7 = solidW(100, 586, 80, 1, SCOPE_LN_SKIN, 2)
+-- ── marshal stack (left) — bordered angels grid (beta31: matches the
+--    assignment-table look on the right; angels in a left column, holding
+--    modexes in the main column, rung dividers between angels). ──────────
+c.lblMarStackHdr = lbl("STACK  ·  angels", PAD, 532, 220, LabelSkin, 18)
+c.sBoxT   = solidW( 96, 560, 136,   1, SCOPE_RG_SKIN, 3)
+c.sBoxB   = solidW( 96, 808, 137,   1, SCOPE_RG_SKIN, 3)
+c.sBoxL   = solidW( 96, 560,   1, 248, SCOPE_RG_SKIN, 3)
+c.sBoxR   = solidW(232, 560,   1, 249, SCOPE_RG_SKIN, 3)
+c.sBoxSep = solidW( 96, 578, 136,   1, SCOPE_RG_SKIN, 3)
+c.sBoxV   = solidW(130, 560,   1, 248, SCOPE_LN_SKIN, 2)
+c.lblStkH1 = lbl("ANG",     100, 562,  28, CapSkin, 12)
+c.lblStkH2 = lbl("HOLDING", 134, 562,  96, CapSkin, 12)
+-- angels rows 7 (top) .. 2 (bottom), 38 px each; 5 dividers between them
+c.lblStkA7 = lbl("7", 104, 586, 22, RadarLbl, 13)
+c.sRung2   = solidW(96, 616, 136, 1, SCOPE_LN_SKIN, 2)
+c.lblStkA6 = lbl("6", 104, 624, 22, RadarLbl, 13)
+c.sRung3   = solidW(96, 654, 136, 1, SCOPE_LN_SKIN, 2)
+c.lblStkA5 = lbl("5", 104, 662, 22, RadarLbl, 13)
+c.sRung4   = solidW(96, 692, 136, 1, SCOPE_LN_SKIN, 2)
+c.lblStkA4 = lbl("4", 104, 700, 22, RadarLbl, 13)
+c.sRung5   = solidW(96, 730, 136, 1, SCOPE_LN_SKIN, 2)
+c.lblStkA3 = lbl("3", 104, 738, 22, RadarLbl, 13)
+c.sRung6   = solidW(96, 768, 136, 1, SCOPE_LN_SKIN, 2)
+c.lblStkA2 = lbl("2", 104, 776, 22, RadarLbl, 13)
 for i = 1, 12 do
-    c["stkSlot" .. i] = lbl("", -300, -300, 44, SpotSkin, 13)
+    c["stkSlot" .. i] = lbl("", -300, -300, 92, SpotSkin, 13)
 end
 
 -- ── marshal assignment TABLE (right, bordered grid) ───────────────
@@ -954,95 +1100,139 @@ for r = 1, 13 do
   end
 end
 
-c.lblMarStatus = lbl("(no inbound traffic)", PAD, 812, W - PAD*2, CapSkin, 16)
+c.lblMarStatus = lbl("(no inbound traffic)", PAD, 808, 238, CapSkin, 16)
 
--- recovery CASE broadcast buttons (also on the CARRIER tab)
-c.lblMarCaseHdr = lbl("RECOVERY CASE", PAD, 836, 250, CapSkin, 16)
-c.btnCaseM1 = btn("CASE I",   6, 858, 114)
-c.btnCaseM2 = btn("CASE II",  126, 858, 114)
-c.btnCaseM3 = btn("CASE III", 246, 858, 114)
+-- beta43: live weather blurb (matches the mission) + TURN INTO WIND, both
+-- relocated from the CARRIER tab so marshal control is all in one place.
+c.lblMarWx = lbl("WX: --", 250, 808, W - 250 - PAD, CapSkin, 14)
+c.lblWind  = lbl("INTO WIND", PAD, 832, 86, LabelSkin, 14)
+local wb = 46
+c.btnWindStop = btn("Stop", 100 + (wb+4)*0, 830, wb)
+c.btnWind30m  = btn("30m",  100 + (wb+4)*1, 830, wb)
+c.btnWind60m  = btn("60m",  100 + (wb+4)*2, 830, wb)
+c.btnWind90m  = btn("90m",  100 + (wb+4)*3, 830, wb)
+c.btnWind2h   = btn("2h",   100 + (wb+4)*4, 830, wb)
+c.btnWind4h   = btn("4h",   100 + (wb+4)*5, 830, wb)
+c.btnWind8h   = btn("8h",   100 + (wb+4)*6, 830, wb)
+
+-- recovery CASE selector + marshal-stack broadcast (moved here from the
+-- removed CARRIER tab in beta44).
+c.lblMarCaseHdr = lbl("CASE", PAD, 864, 38, CapSkin, 16)
+c.btnCaseM1 = btn("CASE I",   48,  862, 104)
+c.btnCaseM2 = btn("CASE II",  156, 862, 104)
+c.btnCaseM3 = btn("CASE III", 264, 862, 104)
+c.btnMarshalBroadcast = btn("BROADCAST", 374, 862, W - 374 - PAD)
 
 
 -- ============================================================= DECKBOSS TAB ==
--- v1.3-beta29: rotated so BOW = top, STERN = bottom, PORT = left, STBD = right
--- (standard top-down view).  The deck silhouette is painted with box-drawing
--- character widgets at port/stbd/bow/stern edges — dxgui has no line/rect
--- primitives so each character is its own Static widget.  Zone labels sit
--- inside the silhouette; modex slot pool gets repositioned by the hook from
--- carriergui_deck.txt every poll.
+-- v1.3-beta32: the box-drawn silhouette is gone — DECKBOSS now shows a real
+-- top-down deck IMAGE (deck_overhead.tga, made from a deck-spotting diagram by
+-- Tools/gen_deck_image.py).  Bow = LEFT, island/starboard = TOP, port = BOTTOM.
+-- The hook overlays live aircraft (red blip + modex) on top.  The image loads
+-- via load-time bkg.file (placed in the DCS install by the LSO patch); if it
+-- isn't there the hook shows a hint and the ON DECK list still works.
 
-c.lblDbHdr      = lbl("DECK VIEW  ·  BOW = top  ·  PORT = left",  PAD, 30, W - PAD*2, LabelSkin, 18)
+c.lblDbHdr = lbl("DECK VIEW  ·  overhead  ·  BOW = left", PAD, 30, W - PAD*2, LabelSkin, 18)
 
--- ── deck silhouette — HORIZONTAL: BOW = right, PORT = top ────────────────
--- Deck plate x=60..480 (420 long), y=120..240 (120 wide).
-c.dbDeck    = solidW( 60, 120, 420, 120, DECK_FILL_SKIN, 1)
--- angled landing-area strip (rises to port/top toward the bow)
+-- deck-area frame + "no image" hint (sit UNDER the image; covered when it loads)
+c.dbBg   = solidW( 10,  54, 520, 139, SCOPE_BG_SKIN, 1)
+c.dbBT   = solidW( 10,  54, 520,   1, SCOPE_RG_SKIN, 2)
+c.dbBB   = solidW( 10, 193, 520,   1, SCOPE_RG_SKIN, 2)
+c.dbBL   = solidW( 10,  54,   1, 139, SCOPE_RG_SKIN, 2)
+c.dbBR   = solidW(530,  54,   1, 139, SCOPE_RG_SKIN, 2)
+c.lblDbImgHint = lbl("deck image not installed — run the LSO patch (Enable-LsoTools)",
+                     20, 116, 500, CapSkin, 14)
+
+-- top-down deck image (load-time bkg.file; hook gates visibility on the TGA)
 do
-    local strip = solidW( 75, 161, 270,  48, DECK_STRP_SKIN, 2)
-    strip.params.angle = -10
-    strip.params.pivotPoint = { ["x"] = 135, ["y"] = 24 }
-    c.dbStrip = strip
+  local W9 = "0xffffffff"
+  c.dbImg = {
+    ["params"] = { ["bounds"] = { ["x"]=S(10), ["y"]=S(54), ["w"]=S(520), ["h"]=S(139) },
+      ["enabled"] = true, ["visible"] = true, ["zindex"] = 3, ["text"] = "", ["tooltip"] = "" },
+    ["skin"] = { ["params"] = { ["name"] = "staticSkin" }, ["states"] = { ["released"] = { [1] = { ["bkg"] = {
+      ["center_bottom"]=W9, ["center_center"]=W9, ["center_top"]=W9,
+      ["left_bottom"]=W9,   ["left_center"]=W9,   ["left_top"]=W9,
+      ["right_bottom"]=W9,  ["right_center"]=W9,  ["right_top"]=W9,
+      ["file"]   = "mods\\tech\\supercarrier\\platcameraui\\carriergui_deck.tga",
+      ["rect"]   = { ["x1"]=0, ["y1"]=0, ["x2"]=520, ["y2"]=139 },
+      ["insets"] = { ["top"]=0, ["bottom"]=0, ["left"]=0, ["right"]=0 },
+    } } } } },
+    ["type"] = "Static",
+  }
 end
--- deck edge lines
-c.dbEdgeT   = solidW( 60, 120, 420,   2, DECK_EDGE_SKIN, 3)
-c.dbEdgeB   = solidW( 60, 238, 420,   2, DECK_EDGE_SKIN, 3)
-c.dbEdgeL   = solidW( 60, 120,   2, 120, DECK_EDGE_SKIN, 3)
-c.dbEdgeR   = solidW(478, 120,   2, 120, DECK_EDGE_SKIN, 3)
--- catapult tracks: 1+2 at the bow (right end), 3+4 angled on the waist
-c.dbCat1    = solidW(390, 148,  76,   3, CAT_SKIN, 3)
-c.dbCat2    = solidW(390, 184,  76,   3, CAT_SKIN, 3)
-do
-    local c3 = solidW(160, 172,  76,   3, CAT_SKIN, 3)
-    c3.params.angle = -10
-    c3.params.pivotPoint = { ["x"] = 38, ["y"] = 1 }
-    c.dbCat3 = c3
-    local c4 = solidW(160, 202,  76,   3, CAT_SKIN, 3)
-    c4.params.angle = -10
-    c4.params.pivotPoint = { ["x"] = 38, ["y"] = 1 }
-    c.dbCat4 = c4
-end
--- island on the starboard (bottom) edge + the four elevators
-c.dbIslandF = solidW(290, 224,  64,  14, ISLAND_SKIN, 2)
-c.dbEl1     = solidW(368, 230,  30,  10, ELEV_SKIN, 2)
-c.dbEl2     = solidW(240, 230,  30,  10, ELEV_SKIN, 2)
-c.dbEl3     = solidW(150, 122,  30,  10, ELEV_SKIN, 2)
-c.dbEl4     = solidW( 90, 230,  30,  10, ELEV_SKIN, 2)
 
--- Deck zone labels — horizontal silhouette (BOW right, PORT top)
-c.lblDbBow      = lbl("BOW",        484, 172, 40, DeckSkin, 14)
-c.lblDbStern    = lbl("STERN",       14, 172, 50, DeckSkin, 14)
-c.lblDbCat1     = lbl("CAT1",       392, 132, 44, DeckHdr,  13)
-c.lblDbCat2     = lbl("CAT2",       392, 192, 44, DeckHdr,  13)
-c.lblDbCat3     = lbl("CAT3",       150, 156, 44, DeckHdr,  13)
-c.lblDbCat4     = lbl("CAT4",       150, 208, 44, DeckHdr,  13)
-c.lblDbIsland   = lbl("ISLAND",     300, 246, 50, DeckSkin, 12)
-c.lblDb6pk      = lbl("6-PACK",     330, 128, 60, DeckSkin, 12)
-c.lblDbWaist    = lbl("WAIST",      230, 146, 60, DeckSkin, 12)
-c.lblDbElev1    = lbl("EL1",        372, 246, 30, DeckSkin, 11)
-c.lblDbElev2    = lbl("EL2",        244, 246, 30, DeckSkin, 11)
-c.lblDbElev3    = lbl("EL3",        154, 106, 30, DeckSkin, 11)
-c.lblDbElev4    = lbl("EL4",         94, 246, 30, DeckSkin, 11)
-c.lblDbJunk     = lbl("JUNKYARD",    70, 128, 80, DeckHdr,  12)
-
--- Aircraft pool — a blip dot at the true deck spot + an id label (the hook
--- declutters the labels so parked jets don't overlap).
+-- Aircraft pool — cyan blip + a DATABLOCK with its own dark backing so the
+-- modex stays readable over the busy multicolor deck (text never fights the
+-- deck underneath).  Bright white text on a near-opaque dark pill.
+local DeckIdSkin = {
+    ["params"] = { ["name"] = "staticSkin", ["textWrapping"] = false },
+    ["states"] = { ["released"] = { [1] = {
+        ["bkg"] = {
+            ["center_bottom"]="0x0a0e12ee", ["center_center"]="0x0a0e12ee", ["center_top"]="0x0a0e12ee",
+            ["left_bottom"]="0x0a0e12ee",   ["left_center"]="0x0a0e12ee",   ["left_top"]="0x0a0e12ee",
+            ["right_bottom"]="0x0a0e12ee",  ["right_center"]="0x0a0e12ee",  ["right_top"]="0x0a0e12ee",
+        },
+        ["text"] = { ["color"]="0xffffffff", ["font"]="DejaVuLGCSansCondensed-Bold.ttf", ["lineHeight"]=S(14) },
+    } } },
+}
 for i = 1, 16 do
-    c["dbDot"  .. i] = solidW(-300, -300, 5, 5, CONTACT_SKIN, 4)
-    c["spotDb" .. i] = lbl("", -300, -300, 56, SpotSkin, 13)
+    c["dbDot"  .. i] = solidW(-300, -300, 6, 6, DECK_BLIP_SKIN, 4)
+    c["spotDb" .. i] = lbl("", -300, -300, 56, DeckIdSkin, 13)
 end
 
--- ON DECK summary list (one line per aircraft, below the deck silhouette).
-c.lblDbOnDeckHdr  = lbl("ON DECK",                                  PAD, 280, W - PAD*2, LabelSkin, 18)
-c.lblDbOnDeckCols = lbl("  MODEX     ALONG       ACROSS     ZONE",  PAD, 300, W - PAD*2, CapSkin,   14)
+-- Conga-line overlay: the preferred taxi/respot flow drawn over the deck image
+-- as a dotted taxi-yellow path (hook positions each dot when the toggle is ON).
+-- z=5 so it sits above the deck image + the aircraft blips; 8 px + bright so it
+-- reads clearly over the busy deck photo.
+local CONGA_SKIN = mkSolidSkin("0xffe000ff")   -- bright taxi yellow
+for i = 1, 40 do
+    c["congaDot" .. i] = solidW(-300, -300, 8, 8, CONGA_SKIN, 5)
+end
+
+-- ON DECK summary list (one line per aircraft, below the deck image).
+c.lblDbOnDeckHdr  = lbl("ON DECK",                                  PAD, 206, W - PAD*2, LabelSkin, 18)
+c.lblDbOnDeckCols = lbl("  MODEX     ALONG       ACROSS     ZONE",  PAD, 226, W - PAD*2, CapSkin,   14)
 for i = 1, 10 do
-    c["rowDbOnDeck" .. i] = lbl("", PAD, 318 + (i-1)*15, W - PAD*2, RowSkinMon, 15)
+    c["rowDbOnDeck" .. i] = lbl("", PAD, 244 + (i-1)*15, W - PAD*2, RowSkinMon, 15)
 end
 
--- Conga toggle (state label only; path overlay deferred).
-c.lblDbCongaState = lbl("CONGA LINE:  OFF", PAD,        490, 200, ValueSkin, 20)
-c.btnDbConga      = btn("TOGGLE CONGA",     PAD + 220,  490, 150)
-c.lblDbCongaHint  = lbl("(path overlay disabled in beta — preview only)",
-                        PAD, 518, W - PAD*2, CapSkin, 16)
+-- Conga toggle — label vertically centred against the button row.
+c.lblDbCongaState = lbl("CONGA LINE:  OFF", PAD, 410, 200, ValueSkin, 20)
+c.btnDbConga      = btn("TOGGLE CONGA",     226, 406, 150)
+c.lblDbCongaHint  = lbl("(amber taxi path over the deck — preferred respot flow)",
+                        PAD, 436, W - PAD*2, CapSkin, 16)
+
+-- SHIP SYSTEMS (deck boss owns the deck: lights + recovery beacons).
+-- Two columns on a shared 32-px row grid so both sides line up:
+--   left  = deck/hull lights      right = TACAN / ICLS / LINK4 / ACLS
+c.lblDbSysHdr = lbl("SHIP SYSTEMS", PAD, 466, W - PAD*2, LabelSkin, 18)
+
+local sy = 492                 -- first shared row
+local ROWSTEP = BTN_H + PAD    -- 32
+
+-- left column: deck/hull lights (caption sits on the row above its grid)
+c.lblLights         = lbl("LIGHTS", PAD, sy - 2, 120, CapSkin, 14)
+c.btnLightsOff      = btn("Off",      PAD + (BTN_W+PAD)*0, sy + 16)
+c.btnLightsAuto     = btn("Auto",     PAD + (BTN_W+PAD)*1, sy + 16)
+c.btnLightsNav      = btn("Nav",      PAD + (BTN_W+PAD)*0, sy + 16 + ROWSTEP)
+c.btnLightsLaunch   = btn("Launch",   PAD + (BTN_W+PAD)*1, sy + 16 + ROWSTEP)
+c.btnLightsRecovery = btn("Recovery", PAD,                 sy + 16 + ROWSTEP*2, BTN_W*2 + PAD)
+
+-- right column: beacons — labels vertically centred on each button row
+local rx  = 290
+local rbx = rx + 70
+c.lblTacan   = lbl("TACAN",  rx, sy + 16 + 6, 64, CapSkin, 14)
+c.btnTacanOn  = btn("On",  rbx + (BTN_W+PAD)*0, sy + 16)
+c.btnTacanOff = btn("Off", rbx + (BTN_W+PAD)*1, sy + 16)
+c.lblIcls    = lbl("ICLS",   rx, sy + 16 + ROWSTEP + 6, 64, CapSkin, 14)
+c.btnIclsOn   = btn("On",  rbx + (BTN_W+PAD)*0, sy + 16 + ROWSTEP)
+c.btnIclsOff  = btn("Off", rbx + (BTN_W+PAD)*1, sy + 16 + ROWSTEP)
+c.lblLink4   = lbl("LINK 4", rx, sy + 16 + ROWSTEP*2 + 6, 64, CapSkin, 14)
+c.btnLink4On  = btn("On",  rbx + (BTN_W+PAD)*0, sy + 16 + ROWSTEP*2)
+c.btnLink4Off = btn("Off", rbx + (BTN_W+PAD)*1, sy + 16 + ROWSTEP*2)
+c.lblAcls    = lbl("ACLS",   rx, sy + 16 + ROWSTEP*3 + 6, 64, CapSkin, 14)
+c.btnAclsOn   = btn("On",  rbx + (BTN_W+PAD)*0, sy + 16 + ROWSTEP*3)
+c.btnAclsOff  = btn("Off", rbx + (BTN_W+PAD)*1, sy + 16 + ROWSTEP*3)
 
 -- ================================================================= LSO TAB ==
 -- v1.3: rebuilt.  Layout top → bottom:
@@ -1058,97 +1248,198 @@ c.lblDbCongaHint  = lbl("(path overlay disabled in beta — preview only)",
 --   4. SHIP            — live HDG / wind from bridge.
 --   5. RECOVERY EVENTS — last 3 LSO prompts (CASE III monitor still wired).
 
--- ── CASE I PATTERN ──────────────────────────────────────────
--- v1.3-beta29: racetrack visual.  Landmark labels at fixed pattern points,
--- carrier marker at the trap position, aircraft slot pool the hook moves
--- to each plane's current point.  90° corners at BREAK and at 90→groove.
-c.lblPatHdr      = lbl("CASE I OVERHEAD  ·  port racetrack",  PAD,  30, W - PAD*2, LabelSkin, 18)
+-- == CASE I PATTERN ==  (generated by Tools/gen_lso_pattern.py)
+-- Stylized horizontal CASE I racetrack with rounded turns; jets SNAP to the
+-- fixed pattern points (clean read).  Boat at centre, groove into the trap.
+c.lblPatHdr = lbl("CASE I OVERHEAD  ·  port racetrack", 6, 30, 520, LabelSkin, 18)
 
--- ── scope face + racetrack drawn with solid lines + corner arcs ──────────
--- Track: right leg x=400 (INITIAL up to BREAK), top leg y=55 (BREAK to the
--- downwind turn), left leg x=140 (DOWNWIND/ABEAM/180), bottom leg y=260
--- (180 to the 90).  90° corners on the right (per user feedback), rounded
--- arcs on the left turns.
-c.pScope   = solidW( 14,  46, 512, 234, SCOPE_BG_SKIN, 1)
-c.pBordT   = solidW( 14,  46, 512,   1, SCOPE_RG_SKIN, 3)
-c.pBordB   = solidW( 14, 279, 512,   1, SCOPE_RG_SKIN, 3)
-c.pBordL   = solidW( 14,  46,   1, 234, SCOPE_RG_SKIN, 3)
-c.pBordR   = solidW(525,  46,   1, 234, SCOPE_RG_SKIN, 3)
--- racetrack legs — HORIZONTAL layout (uses the full panel width).
--- Flow: INITIAL enters bottom-left, upwind to the ship at bottom-right,
--- 90° BREAK up the right side, 90° onto the downwind (top leg, right→left),
--- rounded 180 turn on the left, back to the GROOVE and the TRAP.
-c.pLegB    = solidW(120, 219, 350,   2, SCOPE_RG_SKIN, 3)
-c.pLegR    = solidW(468,  90,   2, 131, SCOPE_RG_SKIN, 3)
-c.pLegT    = solidW(120,  89, 350,   2, SCOPE_RG_SKIN, 3)
--- rounded 180 turn on the left (semicircle, generated)
+c.pScope = solidW(16, 48, 508, 230, SCOPE_BG_SKIN, 1)
+c.pBordT = solidW(16, 48, 508, 1, SCOPE_RG_SKIN, 3)
+c.pBordB = solidW(16, 278, 508, 1, SCOPE_RG_SKIN, 3)
+c.pBordL = solidW(16, 48, 1, 230, SCOPE_RG_SKIN, 3)
+c.pBordR = solidW(524, 48, 1, 231, SCOPE_RG_SKIN, 3)
 
--- own ship on the bottom leg (trap end)
-c.pShip    = solidW(424, 209,  22,  12, SHIP_MARK_SKIN, 3)
+-- straight legs: upwind (bottom, starboard) + downwind (top, port)
+c.pLegB = solidW(170, 192, 198, 2, SCOPE_RG_SKIN, 3)
+c.pLegT = solidW(170, 90, 198, 2, SCOPE_RG_SKIN, 3)
 
--- Pattern landmark labels (sit just off the drawn track)
-c.lblPatInitial  = lbl("INITIAL",   110, 230, 70, DeckSkin, 14)
-c.lblPatBreak    = lbl("BREAK",     478, 148, 60, DeckSkin, 14)
-c.lblPatDwnwd    = lbl("DOWNWIND",  240,  68, 80, DeckSkin, 14)
-c.lblPatAbeam    = lbl("ABEAM",     408,  68, 60, DeckSkin, 14)
-c.lblPat180      = lbl("180",        38, 148, 40, DeckSkin, 14)
-c.lblPat90       = lbl("90",         88, 238, 30, DeckSkin, 14)
-c.lblPatGroove   = lbl("GROOVE",    320, 230, 70, DeckSkin, 14)
-c.lblPatTrap     = lbl("TRAP",      424, 192, 50, DeckHdr,  14)
-c.lblPatCv       = lbl("CV",        450, 230, 30, CarrierMark, 14)
+-- rounded turns: break (right end) + 180 (left end)
+c.pArcR1 = solidW(366, 89, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcR2 = solidW(379, 91, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcR3 = solidW(392, 96, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcR4 = solidW(402, 104, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcR5 = solidW(410, 114, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcR6 = solidW(415, 127, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcR7 = solidW(417, 140, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcR8 = solidW(415, 153, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcR9 = solidW(410, 166, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcR10 = solidW(402, 176, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcR11 = solidW(392, 184, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcR12 = solidW(379, 189, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcR13 = solidW(366, 191, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcL1 = solidW(168, 191, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcL2 = solidW(155, 189, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcL3 = solidW(142, 184, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcL4 = solidW(132, 176, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcL5 = solidW(124, 166, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcL6 = solidW(119, 153, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcL7 = solidW(117, 140, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcL8 = solidW(119, 127, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcL9 = solidW(124, 114, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcL10 = solidW(132, 104, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcL11 = solidW(142, 96, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcL12 = solidW(155, 91, 4, 4, SCOPE_RG_SKIN, 3)
+c.pArcL13 = solidW(168, 89, 4, 4, SCOPE_RG_SKIN, 3)
 
--- Aircraft pool — LotATC-style blip dot + datablock (id + altitude) the hook
--- moves to whichever pattern point the bridge classified each aircraft at.
+-- groove: final on the angled deck into the trap
+c.pGrv1 = solidW(198, 177, 4, 4, SCOPE_RING_SKIN, 3)
+c.pGrv2 = solidW(211, 179, 4, 4, SCOPE_RING_SKIN, 3)
+c.pGrv3 = solidW(224, 181, 4, 4, SCOPE_RING_SKIN, 3)
+c.pGrv4 = solidW(237, 183, 4, 4, SCOPE_RING_SKIN, 3)
+c.pGrv5 = solidW(249, 185, 4, 4, SCOPE_RING_SKIN, 3)
+c.pGrv6 = solidW(262, 187, 4, 4, SCOPE_RING_SKIN, 3)
+c.pGrv7 = solidW(275, 189, 4, 4, SCOPE_RING_SKIN, 3)
+c.pGrv8 = solidW(288, 191, 4, 4, SCOPE_RING_SKIN, 3)
+
+-- carrier marker (nose right along the BRC) — hull + bow nub
+c.pShip = solidW(260, 185, 60, 16, SHIP_MARK_SKIN, 4)
+c.pShipBow = solidW(320, 189, 10, 8, SHIP_MARK_SKIN, 4)
+
+-- pattern-point labels
+c.lblPatInitial = lbl("INITIAL", 180, 222, 70, DeckSkin, 14)
+c.lblPatBreak = lbl("BREAK", 357, 112, 70, DeckSkin, 14)
+c.lblPatDwnwd = lbl("DOWNWIND", 326, 71, 70, DeckSkin, 14)
+c.lblPatAbeam = lbl("ABEAM", 206, 71, 70, DeckSkin, 14)
+c.lblPat180 = lbl("180", 93, 166, 70, DeckSkin, 14)
+c.lblPat90 = lbl("90", 178, 140, 70, DeckSkin, 14)
+c.lblPatGroove = lbl("GROOVE", 158, 182, 70, DeckSkin, 14)
+c.lblPatTrap = lbl("TRAP", 326, 185, 70, DeckHdr, 14)
+c.lblPatCv = lbl("CV", 282, 185, 70, CarrierMark, 14)
+
+-- aircraft pool (hook snaps each to its classified point)
 for i = 1, 8 do
     c["acftDot" .. i] = solidW(-300, -300, 5, 5, CONTACT_SKIN, 4)
-    c["acftPat" .. i] = lbl("", -300, -300, 64, SpotSkin, 13)
+    c["acftPat" .. i] = lbl("", -300, -300, 80, SpotSkin, 13)
 end
 
--- ── LSO LIGHTS ─────────────────────────────────────────────
-c.lblLightsHdr = lbl("LSO LIGHTS",                              PAD, 295, W - PAD*2, LabelSkin, 18)
-c.btnWaveOff   = btn("WAVE OFF",  PAD,           320, 250)
-c.btnCut       = btn("CUT",       PAD + 256,     320, 250)
-c.btnWaveOff.params.bounds.h = 60
-c.btnCut.params.bounds.h     = 60
 
--- ── PLAT CAMERA  (NVG + RESET CAM kept; Wire/Deck/Zoom RETIRED) ──
-c.lblLsoNvg   = lbl("PLAT NVG GAIN",                            PAD,  395, 240, LabelSkin, 18)
-c.btnResetCam = btn("RESET CAM",                    W - PAD - 110,  395, 110)
+-- ── LSO LIGHTS — symmetric pair, equal widths ─────────────────────────
+c.lblLightsHdr = lbl("LSO LIGHTS",                              PAD, 290, W - PAD*2, LabelSkin, 18)
+c.btnWaveOff   = btn("WAVE OFF",  PAD, 312, 259)
+c.btnCut       = btn("CUT",       275, 312, 259)
+c.btnWaveOff.params.bounds.h = S(52)
+c.btnCut.params.bounds.h     = S(52)
+
+-- ── PLAT CAMERA — one aligned row: LEDs left, big value right, RESET on
+--    the header line.  (Wire/Deck/Zoom retired in v1.3.) ────────────────
+c.lblLsoNvg   = lbl("PLAT NVG GAIN",                            PAD, 376, 240, LabelSkin, 18)
+c.btnResetCam = btn("RESET CAM",                                424, 376, 110)
 
 local BigSkin = mkLabelSkin("0xffffffff", 36)
-c.lblNvgVal   = lbl("OFF", 110, 417, 160, BigSkin, 48)
+c.lblNvgVal   = lbl("OFF", 356, 404, 160, BigSkin, 44)
 
 local LedFull = mkLabelSkin("0x60ff80ff", 28)
 local BLK = "\226\150\136"   -- "█" U+2588 via decimal escape
-c.ledNvg1  = lbl(BLK,  41, 471, 28, LedFull, 36)
-c.ledNvg2  = lbl(BLK,  71, 471, 28, LedFull, 36)
-c.ledNvg3  = lbl(BLK, 101, 471, 28, LedFull, 36)
-c.ledNvg4  = lbl(BLK, 131, 471, 28, LedFull, 36)
-c.ledNvg5  = lbl(BLK, 161, 471, 28, LedFull, 36)
-c.ledNvg6  = lbl(BLK, 191, 471, 28, LedFull, 36)
-c.ledNvg7  = lbl(BLK, 221, 471, 28, LedFull, 36)
-c.ledNvg8  = lbl(BLK, 251, 471, 28, LedFull, 36)
-c.ledNvg9  = lbl(BLK, 281, 471, 28, LedFull, 36)
-c.ledNvg10 = lbl(BLK, 311, 471, 28, LedFull, 36)
+c.ledNvg1  = lbl(BLK,   6, 402, 28, LedFull, 36)
+c.ledNvg2  = lbl(BLK,  36, 402, 28, LedFull, 36)
+c.ledNvg3  = lbl(BLK,  66, 402, 28, LedFull, 36)
+c.ledNvg4  = lbl(BLK,  96, 402, 28, LedFull, 36)
+c.ledNvg5  = lbl(BLK, 126, 402, 28, LedFull, 36)
+c.ledNvg6  = lbl(BLK, 156, 402, 28, LedFull, 36)
+c.ledNvg7  = lbl(BLK, 186, 402, 28, LedFull, 36)
+c.ledNvg8  = lbl(BLK, 216, 402, 28, LedFull, 36)
+c.ledNvg9  = lbl(BLK, 246, 402, 28, LedFull, 36)
+c.ledNvg10 = lbl(BLK, 276, 402, 28, LedFull, 36)
 
 local TickSkin = mkLabelSkin("0xa0a0a0ff", 12)
-c.lblTick0   = lbl("0%",     35, 511, 40, TickSkin, 14)
-c.lblTick50  = lbl("50%",   165, 511, 40, TickSkin, 14)
-c.lblTick100 = lbl("100%",  305, 511, 50, TickSkin, 14)
+c.lblTick0   = lbl("0%",     6, 442, 40, TickSkin, 14)
+c.lblTick50  = lbl("50%",  138, 442, 40, TickSkin, 14)
+c.lblTick100 = lbl("100%", 270, 442, 50, TickSkin, 14)
 
--- ── SHIP STATUS (live readout from the bridge) ────────────
-c.lblShipHdr  = lbl("SHIP",                   PAD,        550, 240, LabelSkin, 18)
-c.lblShipHdg  = lbl("HDG: --",                PAD,        572, 170, ValueSkin, 20)
-c.lblShipWind = lbl("Wind: --/-- kts",        PAD + 181,  572, 350, ValueSkin, 20)
+-- ── SHIP STATUS (live readout) ────────────────────────────────────────
+c.lblShipHdr  = lbl("SHIP",                   PAD, 468, 240, LabelSkin, 18)
+c.lblShipHdg  = lbl("HDG: --",                PAD, 490, 170, ValueSkin, 20)
+c.lblShipWind = lbl("Wind: --/-- kts",        187, 490, 347, ValueSkin, 20)
 
--- ── RECOVERY EVENTS — LSO prompt log (3 most recent lines) ─────────
-c.lblEventsHdr = lbl("RECOVERY EVENTS",                  PAD, 610, 240, LabelSkin, 18)
+-- ── RECOVERY EVENTS — LSO prompt log; bridge status inline right ──────
+c.lblEventsHdr = lbl("RECOVERY EVENTS",                  PAD, 522, 190, LabelSkin, 18)
+c.lblNvgState  = lbl("Bridge: probing...",               210, 526, 324, CapSkin, 14)
 local EventSkin = mkLabelSkin("0xeaeaeaff", 14)
-c.lblEvent1 = lbl("(waiting for inbound aircraft...)",   PAD, 635, W - PAD*2, EventSkin, 18)
-c.lblEvent2 = lbl("",                                    PAD, 657, W - PAD*2, EventSkin, 18)
-c.lblEvent3 = lbl("",                                    PAD, 679, W - PAD*2, EventSkin, 18)
+c.lblEvent1 = lbl("(waiting for inbound aircraft...)",   PAD, 546, W - PAD*2, EventSkin, 18)
+c.lblEvent2 = lbl("",                                    PAD, 568, W - PAD*2, EventSkin, 18)
+c.lblEvent3 = lbl("",                                    PAD, 590, W - PAD*2, EventSkin, 18)
 
-c.lblNvgState = lbl("Bridge: probing...",                PAD, 715, W - PAD*2, CapSkin, 18)
+-- ── GROOVE TIMER — groove-entry to trap/bolter (nominal ~15-18 s) ─────
+c.lblGrooveHdr   = lbl("GROOVE TIMER", PAD, 618, 250, LabelSkin, 18)
+local GrooveSkin = mkLabelSkin("0x60ff80ff", 40)
+c.lblGrooveTimer = lbl("-- s",                 PAD, 640, 320, GrooveSkin, 46)
+c.lblGrooveLast  = lbl("(waiting for a pass)", PAD, 692, W - PAD*2, CapSkin, 16)
+
+-- ── NEXT / UPCOMING — recovery sequence + the 10-15 nm deadspot bridge ─
+c.lblLsoApproachHdr  = lbl("NEXT / UPCOMING", PAD, 720, W - PAD*2, LabelSkin, 16)
+c.lblLsoApproachCols = lbl("MODEX        RANGE        ALT          GS", PAD + 4, 744, W - PAD*2, CapSkin, 13)
+c.rowLsoApp1 = lbl("", PAD + 4, 764, W - PAD*2, RowSkinMon, 15)
+c.rowLsoApp2 = lbl("", PAD + 4, 780, W - PAD*2, RowSkinMon, 15)
+c.rowLsoApp3 = lbl("", PAD + 4, 796, W - PAD*2, RowSkinMon, 15)
+c.rowLsoApp4 = lbl("", PAD + 4, 812, W - PAD*2, RowSkinMon, 15)
+
+-- == CASE III OVERLAYS ==  (generated by Tools/gen_case3.py)
+-- Overhead drawings shown only when recovery case == III (hook-gated).
+
+-- TOWER CASE III: marshal-holding overhead (15..30 nm; boat off-screen up)
+c.t3Hdr = lbl("MARSHAL HOLDING  .  radial / DME", 6, 24, 300, CapSkin, 14)
+c.t3Rad = solidW(143, 58, 1, 236, SCOPE_LN_SKIN, 2)
+c.t3Boat = lbl("^ BOAT  (15 nm)", 99, 56, 110, CarrierMark, 12)
+c.t3GR1 = solidW(127, 58, 32, 1, SCOPE_LN_SKIN, 2)
+c.t3LR1 = lbl("15", 163, 51, 26, RadarLbl, 12)
+c.t3GR2 = solidW(127, 137, 32, 1, SCOPE_LN_SKIN, 2)
+c.t3LR2 = lbl("20", 163, 130, 26, RadarLbl, 12)
+c.t3GR3 = solidW(127, 215, 32, 1, SCOPE_LN_SKIN, 2)
+c.t3LR3 = lbl("25", 163, 208, 26, RadarLbl, 12)
+c.t3GR4 = solidW(127, 294, 32, 1, SCOPE_LN_SKIN, 2)
+c.t3LR4 = lbl("30", 163, 287, 26, RadarLbl, 12)
+c.t3RtIn = solidW(143, 152, 1, 79, SCOPE_RG_SKIN, 3)
+c.t3RtOut = solidW(95, 152, 1, 79, SCOPE_RG_SKIN, 3)
+c.t3RtT1 = solidW(93, 150, 4, 4, SCOPE_RG_SKIN, 3)
+c.t3RtT2 = solidW(96, 138, 4, 4, SCOPE_RG_SKIN, 3)
+c.t3RtT3 = solidW(105, 130, 4, 4, SCOPE_RG_SKIN, 3)
+c.t3RtT4 = solidW(117, 126, 4, 4, SCOPE_RG_SKIN, 3)
+c.t3RtT5 = solidW(129, 130, 4, 4, SCOPE_RG_SKIN, 3)
+c.t3RtT6 = solidW(138, 138, 4, 4, SCOPE_RG_SKIN, 3)
+c.t3RtT7 = solidW(141, 150, 4, 4, SCOPE_RG_SKIN, 3)
+c.t3RtB1 = solidW(93, 229, 4, 4, SCOPE_RG_SKIN, 3)
+c.t3RtB2 = solidW(96, 241, 4, 4, SCOPE_RG_SKIN, 3)
+c.t3RtB3 = solidW(105, 250, 4, 4, SCOPE_RG_SKIN, 3)
+c.t3RtB4 = solidW(117, 253, 4, 4, SCOPE_RG_SKIN, 3)
+c.t3RtB5 = solidW(129, 250, 4, 4, SCOPE_RG_SKIN, 3)
+c.t3RtB6 = solidW(138, 241, 4, 4, SCOPE_RG_SKIN, 3)
+c.t3RtB7 = solidW(141, 229, 4, 4, SCOPE_RG_SKIN, 3)
+c.t3Comm = solidW(139, 148, 8, 8, CONTACT_SKIN, 4)
+c.t3CommL = lbl("COMMENCE 21/6k", 151, 145, 110, DeckHdr, 12)
+c.t3MarshL = lbl("MARSHAL", 91, 235, 70, DeckSkin, 12)
+
+-- LSO CASE III: final-approach overhead (boat right; gates 10/8/6/3/0.75)
+c.l3Hdr = lbl("CASE III APPROACH  .  final bearing", 6, 30, 520, LabelSkin, 18)
+c.l3CL = solidW(44, 150, 454, 1, SCOPE_RG_SKIN, 3)
+c.l3Boat = solidW(494, 145, 14, 10, SHIP_MARK_SKIN, 4)
+c.l3Cv = lbl("CV", 496, 130, 30, CarrierMark, 14)
+c.l3GD1 = solidW(464, 134, 1, 32, SCOPE_LN_SKIN, 2)
+c.l3LN1 = lbl("3/4", 458, 118, 28, RadarLbl, 12)
+c.l3LD1 = lbl("CALL BALL", 456, 170, 110, DeckHdr, 13)
+c.l3GD2 = solidW(362, 134, 1, 32, SCOPE_LN_SKIN, 2)
+c.l3LN2 = lbl("3", 356, 118, 28, RadarLbl, 12)
+c.l3LD2 = lbl("TIPOVER / GS", 354, 170, 110, DeckHdr, 13)
+c.l3GD3 = solidW(226, 134, 1, 32, SCOPE_LN_SKIN, 2)
+c.l3LN3 = lbl("6", 220, 118, 28, RadarLbl, 12)
+c.l3LD3 = lbl("BULLSEYE/NDLS", 218, 170, 110, DeckSkin, 13)
+c.l3GD4 = solidW(135, 134, 1, 32, SCOPE_LN_SKIN, 2)
+c.l3LN4 = lbl("8", 129, 118, 28, RadarLbl, 12)
+c.l3LD4 = lbl("DIRTY UP", 127, 170, 110, DeckSkin, 13)
+c.l3GD5 = solidW(44, 134, 1, 32, SCOPE_LN_SKIN, 2)
+c.l3LN5 = lbl("10", 38, 118, 28, RadarLbl, 12)
+c.l3LD5 = lbl("LEVEL 1200", 36, 170, 110, DeckSkin, 13)
+c.l3LblD = lbl("nm to go", 44, 100, 70, RadarLbl, 12)
+
 
 -- ============================================================= SHARED STATUS ==
 local StatusSkin = {
@@ -1159,7 +1450,7 @@ local StatusSkin = {
                 ["text"] = {
                     ["color"]      = "0xaaaaaaff",
                     ["font"]       = "DejaVuLGCSansCondensed.ttf",
-                    ["lineHeight"] = 12,
+                    ["lineHeight"] = S(12),
                 },
             },
         },
@@ -1167,7 +1458,7 @@ local StatusSkin = {
 }
 c.lblStatus = {
     ["params"] = {
-        ["bounds"]  = { ["h"] = 40, ["w"] = W - PAD*2, ["x"] = PAD, ["y"] = H - 50 },
+        ["bounds"]  = { ["h"] = S(40), ["w"] = S(W - PAD*2), ["x"] = S(PAD), ["y"] = S(H - 50) },
         ["enabled"] = true,
         ["text"]    = "Bridge: checking...",
         ["tooltip"] = "",

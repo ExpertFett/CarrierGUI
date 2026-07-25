@@ -237,6 +237,26 @@ $t = $t.Replace($luaAnchor, $luaAnchor + "`n" + $luaInject)
 [IO.File]::WriteAllText($lua, $t)
 Write-Host 'Patched PLATCameraUI.lua (NVG dial + foul/wire/zoom readers)' -ForegroundColor Green
 
+# ---- radar scope image -------------------------------------------------------
+# Copy the radar scope TGA into the DCS install next to FLOLS, where the dxgui
+# picture loader resolves bkg.file paths (relative to the DCS root).  The
+# CarrierGUI panel references it at dialog-load time; without this copy the
+# panel falls back to its drawn dot rings.
+$imgPairs = @(
+    @{ Src = 'radar_scope.tga';   Dst = 'carriergui_radar.tga'; Name = 'MARSHALL radar scope' },
+    @{ Src = 'deck_overhead.tga'; Dst = 'carriergui_deck.tga';  Name = 'DECKBOSS deck overhead' }
+)
+foreach ($img in $imgPairs) {
+    $tgaSrc = Join-Path $env:USERPROFILE ("Saved Games\DCS\Scripts\Hooks\" + $img.Src)
+    $tgaDst = Join-Path $dcs ('Mods\tech\Supercarrier\PLATCameraUI\' + $img.Dst)
+    if (Test-Path $tgaSrc) {
+        Copy-Item $tgaSrc $tgaDst -Force
+        Write-Host ("Installed {0} image -> {1}" -f $img.Name, $tgaDst) -ForegroundColor Green
+    } else {
+        Write-Host ("{0} not found in Saved Games\DCS\Scripts\Hooks (skipping image)" -f $img.Src) -ForegroundColor Yellow
+    }
+}
+
 # Clear shader cache so DCS rebuilds for our patched gui.fx.
 foreach ($c in @('metashaders2','fxo','fxo2')) {
     foreach ($sg in @('Saved Games\DCS','Saved Games\DCS.openbeta')) {

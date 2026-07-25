@@ -1,4 +1,4 @@
--- CarrierGUI Mission Bridge  (rebuild v1.2-beta1 — recovery monitor (CASE III milestones))
+-- CarrierGUI Mission Bridge  (v1.3-beta47 — F10 radio menu for dedicated servers)
 -- ============================================================================
 -- Embedded into every patched .miz by Tools/patch_miz.py.
 -- Polls user flags set by the Hook (Ctrl+Shift+c GUI), then pushes the
@@ -328,9 +328,13 @@ local function broadcastCase(caseNum)
     if env and env.info then env.info('[CarrierGUI] broadcast CASE ' .. caseNum) end
 end
 
--- USN-standard CASE III marshal stack:
---   lowest flight angels 6 at 21 DME, each higher flight +1000ft and +1 DME.
---   hold on the final-bearing radial (heading - 9), 6-min left-hand pattern.
+-- Marshal stack broadcast, phrased for the active recovery case:
+--   CASE I     — VISUAL overhead holding, lowest flight angels 2, +1000 ft each.
+--   CASE II/III— INSTRUMENT marshal radial: lowest flight angels 6 at 21 DME,
+--                each higher flight +1000 ft and +1 DME, on the final-bearing
+--                radial, 6-min left-hand pattern, staggered EATs.  CASE II ends
+--                in a visual overhead break; CASE III is a CV-1 instrument
+--                approach to the ship.
 local function broadcastMarshalStack(carriers)
     local carrier = firstCvn(carriers)
     if not carrier then
@@ -339,35 +343,48 @@ local function broadcastMarshalStack(carriers)
     end
     local flights = flagInt('cg_marshal_flights', 1)
     if flights < 1 then flights = 1 end
-    if flights > 8 then flights = 8 end
+    if flights > 9 then flights = 9 end
 
-    local hdg = carrierHeadingDeg(carrier)
-    local fb  = (hdg - ANGLED_DECK_OFFSET) % 360
-    if fb < 0 then fb = fb + 360 end
-
+    local hdg  = carrierHeadingDeg(carrier)
+    local case = _G.__cgCurrentCase or 'I'
     local lines = {}
-    table.insert(lines, '=== CASE III MARSHAL ===')
-    table.insert(lines, string.format('%s  |  Final Bearing %03d  |  BRC %03d',
-        carrier.unitName, math.floor(fb + 0.5), math.floor(hdg + 0.5)))
-    table.insert(lines, 'Hold: left-hand, 6-min pattern, 30 AOB')
-    for i = 1, flights do
-        local angels = 6 + (i - 1)
-        local dme    = 21 + (i - 1)
-        table.insert(lines, string.format(
-            'Flight %d:  %03d radial,  %d DME,  Angels %d',
-            i, math.floor(fb + 0.5), dme, angels))
-    end
 
-    -- Append Charlie/push time if one is set.
-    local charlieMin = flagInt('cg_charlie_min', 0)
-    if charlieMin > 0 then
-        local pushAt = timer.getAbsTime() + charlieMin * 60
-        table.insert(lines, string.format('Expected push: %s (%d min)',
-            clockHHMM(pushAt), charlieMin))
+    if case == 'III' or case == 'II' then
+        -- CASE II & III both marshal on instruments (radial / angels 6 at 21
+        -- DME / +1 per flight / staggered EATs).  CASE II adds that the final
+        -- approach is a VISUAL overhead break once the ship is in sight.
+        local fb = (hdg - ANGLED_DECK_OFFSET) % 360
+        if fb < 0 then fb = fb + 360 end
+        local nowAbs = timer.getAbsTime()
+        table.insert(lines, string.format('=== CASE %s MARSHAL ===', case))
+        table.insert(lines, string.format('%s  |  BRC %03d  |  Final Bearing %03d',
+            carrier.unitName, math.floor(hdg + 0.5), math.floor(fb + 0.5)))
+        if case == 'II' then
+            table.insert(lines, 'Hold: marshal radial, left-hand, 6-min pattern; VISUAL overhead at the ship.')
+        else
+            table.insert(lines, 'Hold: marshal radial, left-hand, 6-min pattern, 30 AOB.')
+        end
+        for i = 1, flights do
+            local angels = 5 + i              -- flight 1 = angels 6
+            local dme    = 20 + i             -- flight 1 = 21 DME
+            local eat    = clockHHMM(nowAbs + (10 + (i - 1)) * 60)
+            table.insert(lines, string.format(
+                'Flight %d:  %03d radial,  %d DME,  Angels %d,  EAT %s',
+                i, math.floor(fb + 0.5), dme, angels, eat))
+        end
+    else
+        table.insert(lines, '=== CASE I MARSHAL ===')
+        table.insert(lines, string.format('%s  |  BRC %03d',
+            carrier.unitName, math.floor(hdg + 0.5)))
+        table.insert(lines, 'Case I recovery - hold overhead, left-hand pattern.')
+        for i = 1, flights do
+            table.insert(lines, string.format('Flight %d:  Angels %d', i, 1 + i))
+        end
+        table.insert(lines, 'Commence on signal; Charlie when established.')
     end
 
     trigger.action.outText(table.concat(lines, '\n'), 30)
-    if env and env.info then env.info('[CarrierGUI] broadcast marshal stack x' .. flights) end
+    if env and env.info then env.info('[CarrierGUI] broadcast CASE ' .. case .. ' marshal stack x' .. flights) end
 end
 
 local function broadcastCharlie(carriers)
@@ -865,7 +882,28 @@ local FLAG_BEACON = {
 -- ============================================================================
 local lastCount = -1
 
+-- Multiplayer relay: drain commands the server agent pulled from the relay and
+-- wrote to carriergui_cmd.txt (one user-flag number per line).  Setting the flag
+-- routes through the SAME poll() dispatch the F10 menu / GUI panel use, so a
+-- remote controller's button press takes effect here.  Needs io (desanitized
+-- MissionScripting — same requirement as the snapshot file-writers).
+local CMD_RELAY_FILE = lfs and (lfs.writedir() .. 'carriergui_cmd.txt') or nil
+local function drainRelayCmds()
+    if not (io and CMD_RELAY_FILE) then return end
+    local f = io.open(CMD_RELAY_FILE, 'r')
+    if not f then return end
+    local content = f:read('*a'); f:close()
+    if not content or content == '' then return end
+    for line in content:gmatch('[^\r\n]+') do
+        local flag = line:match('(%d+)')
+        if flag then trigger.action.setUserFlag(flag, true) end
+    end
+    local w = io.open(CMD_RELAY_FILE, 'w')   -- clear so commands fire once
+    if w then w:close() end
+end
+
 local function poll()
+    pcall(drainRelayCmds)   -- apply relayed controller commands before dispatch
     local carriers = findCarriers()
     if #carriers ~= lastCount then
         lastCount = #carriers
@@ -989,8 +1027,77 @@ local function poll()
 end
 
 -- ============================================================================
+-- F10 RADIO MENU  (v1.3-beta47 — server-native control for dedicated servers)
+-- ============================================================================
+-- A dedicated (headless) server can't show the Ctrl+Shift+c GUI panel, so the
+-- controller actions are exposed on the in-game F10 radio menu instead.  Each
+-- command just sets the SAME user flag the GUI panel set, and the poll() loop
+-- above dispatches it — so all the existing actions/broadcasts are reused, no
+-- new logic.  The menu is built server-side and shows for every connected
+-- player; broadcasts go out as text to all pilots.
+local function setFlagCmd(n)
+    return function() pcall(function() trigger.action.setUserFlag(tostring(n), true) end) end
+end
+
+local function buildRadioMenu()
+    if not missionCommands then
+        say('missionCommands unavailable — F10 carrier menu not built')
+        return
+    end
+    local root = missionCommands.addSubMenu('Carrier Control')
+
+    local mCase = missionCommands.addSubMenu('Recovery Case', root)
+    missionCommands.addCommand('Set CASE I',   mCase, setFlagCmd(202))
+    missionCommands.addCommand('Set CASE II',  mCase, setFlagCmd(203))
+    missionCommands.addCommand('Set CASE III', mCase, setFlagCmd(204))
+
+    missionCommands.addCommand('Broadcast Marshal Stack', root, setFlagCmd(200))
+    missionCommands.addCommand('Charlie / Push Stack',    root, setFlagCmd(201))
+
+    local mWind = missionCommands.addSubMenu('Turn Into Wind', root)
+    missionCommands.addCommand('Stop (resume base course)', mWind, setFlagCmd(100))
+    missionCommands.addCommand('30 minutes', mWind, setFlagCmd(101))
+    missionCommands.addCommand('60 minutes', mWind, setFlagCmd(102))
+    missionCommands.addCommand('90 minutes', mWind, setFlagCmd(103))
+    missionCommands.addCommand('2 hours',    mWind, setFlagCmd(104))
+    missionCommands.addCommand('4 hours',    mWind, setFlagCmd(105))
+    missionCommands.addCommand('8 hours',    mWind, setFlagCmd(106))
+
+    local mBeac = missionCommands.addSubMenu('Beacons', root)
+    missionCommands.addCommand('TACAN On',  mBeac, setFlagCmd(2))
+    missionCommands.addCommand('TACAN Off', mBeac, setFlagCmd(1))
+    missionCommands.addCommand('ICLS On',   mBeac, setFlagCmd(4))
+    missionCommands.addCommand('ICLS Off',  mBeac, setFlagCmd(3))
+    missionCommands.addCommand('LINK4 On',  mBeac, setFlagCmd(6))
+    missionCommands.addCommand('LINK4 Off', mBeac, setFlagCmd(5))
+    missionCommands.addCommand('ACLS On',   mBeac, setFlagCmd(8))
+    missionCommands.addCommand('ACLS Off',  mBeac, setFlagCmd(7))
+
+    -- Deck lights: flags 10-14 are watched by the patcher-written native
+    -- triggers (a_set_carrier_illumination_mode lives only in the trigger eval
+    -- env), so these only work on a mission patched by Patch Mission.bat.
+    local mLight = missionCommands.addSubMenu('Deck Lights', root)
+    missionCommands.addCommand('Off',      mLight, setFlagCmd(10))
+    missionCommands.addCommand('Auto',     mLight, setFlagCmd(11))
+    missionCommands.addCommand('Nav',      mLight, setFlagCmd(12))
+    missionCommands.addCommand('Launch',   mLight, setFlagCmd(13))
+    missionCommands.addCommand('Recovery', mLight, setFlagCmd(14))
+
+    local mLso = missionCommands.addSubMenu('LSO Calls', root)
+    missionCommands.addCommand('Wave Off',          mLso, setFlagCmd(210))
+    missionCommands.addCommand('Cut / OK',          mLso, setFlagCmd(211))
+    missionCommands.addCommand('Bingo',             mLso, setFlagCmd(212))
+    missionCommands.addCommand('Recovery Complete', mLso, setFlagCmd(213))
+    missionCommands.addCommand('Foul Deck',         mLso, setFlagCmd(214))
+    missionCommands.addCommand('Clear Deck',        mLso, setFlagCmd(215))
+
+    say('Carrier Control radio menu ready — F10 -> Carrier Control')
+end
+
+-- ============================================================================
 -- Boot
 -- ============================================================================
 buildBeaconCache()
+pcall(buildRadioMenu)
 timer.scheduleFunction(poll, {}, timer.getTime() + POLL_INTERVAL)
-say('Bridge online (v1.3-beta29) — auto-discovering carriers', 6)
+say('Bridge online (v1.3-beta38) — auto-discovering carriers', 6)

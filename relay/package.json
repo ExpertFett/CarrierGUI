@@ -1,0 +1,12 @@
+{
+  "name": "carriergui-relay",
+  "version": "1.0.0",
+  "description": "CarrierGUI multiplayer recovery relay (recovery.v1 / cmd.v1) — zero-dependency Node",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

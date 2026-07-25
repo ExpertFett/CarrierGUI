@@ -1,0 +1,7 @@
+{
+  "relay_url": "https://your-carriergui-relay.up.railway.app",
+  "relay_token": "set-this-to-the-same-RELAY_TOKEN-as-the-relay",
+  "server_id": "cv73",
+  "dcs_writedir": "C:\\Users\\Fett\\Saved Games\\DCS\\",
+  "poll_secs": 1.0
+}

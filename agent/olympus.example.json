@@ -1,0 +1,7 @@
+{
+  "olympus_host": "your.server.ip.or.host",
+  "olympus_port": 4512,
+  "olympus_password": "your Olympus Game master role password",
+  "dcs_writedir": "C:\\Users\\Fett\\Saved Games\\DCS\\",
+  "poll_secs": 1.0
+}

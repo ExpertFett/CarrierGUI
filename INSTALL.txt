@@ -1,5 +1,5 @@
 ================================================================
- CarrierGUI v1.3-beta29   ***  BETA — TEST BUILD  ***
+ CarrierGUI v1.3-beta30   ***  BETA — TEST BUILD  ***
  In-DCS Supercarrier control & LSO panel — VR-friendly
 ================================================================
 
@@ -59,7 +59,7 @@ inside DCS so it works in VR.
 ----------------------------------------------------------------
 
   1. Close DCS World if it's running.
-  2. Run  CarrierGUI-Setup-v1.3-beta29.exe
+  2. Run  CarrierGUI-Setup-v1.3-beta30.exe
   3. Wizard walks you through it. Keep defaults unless you know
      better. Next → Next → Install → Finish.
   4. Last wizard page has a checkbox:
@@ -80,7 +80,7 @@ time via Apps & Features → CarrierGUI.
 
 ALTERNATIVE — zip distribution (for users who'd rather extract
 manually):
-  - Extract CarrierGUI-v1.3-beta29.zip somewhere.
+  - Extract CarrierGUI-v1.3-beta30.zip somewhere.
   - Run Install.bat inside the extracted folder.
   - Same end result as the .exe installer.
 
@@ -102,6 +102,23 @@ re-patch refreshes the embedded bridge — so when CarrierGUI gets
 a new release, re-patch your missions to pick up the new bridge.
 
 To undo: drag the .miz onto Patcher\Revert Mission.bat.
+
+----------------------------------------------------------------
+ WHAT'S NEW vs beta29
+----------------------------------------------------------------
+
+  - MARSHALL radar now renders a real range-ring IMAGE behind the
+    contacts (was hard-to-read dots). Requires the LSO patch, which
+    now also installs the radar texture into your DCS folder; if you
+    skip the patch the old dot rings remain (no white box).
+  - TOWER stack is now the CASE I recovery stack only: 2k–10k ft.
+    Anything above 10k stays on the MARSHALL radar, not TOWER. The
+    side-view ladder is relabelled 2 → 10k.
+  - BROADCAST MARSHAL STACK moved from TOWER to the CARRIER tab.
+  - Retired the CHARLIE / PUSH (+5/+10/+15/NOW) buttons — no useful
+    in-game effect. Charlie will be driven from the TOWER stack
+    (click-a-jet) in a later beta.
+  - Demo jets shown on an empty TOWER now sit in the 2–4k stack.
 
 ----------------------------------------------------------------
  WHAT'S NEW vs v1.2-beta5
@@ -224,7 +241,7 @@ First DCS launch after LSO\Enable-LsoTools.ps1 is very slow:
  VERSION / SUPPORT
 ----------------------------------------------------------------
 
-CarrierGUI v1.3-beta29 — personal project, free to share within
+CarrierGUI v1.3-beta30 — personal project, free to share within
 DCS squadrons. Not affiliated with Eagle Dynamics or Supercarrier.
 
 Stable fallback: v0.9 release (NVG bar only, no LSO tools).

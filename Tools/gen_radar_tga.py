@@ -61,9 +61,14 @@ hdr = struct.pack(
     0, 0,      # x/y origin
     W, H,      # width, height
     32,        # pixel depth
-    0x28,      # descriptor: 8 alpha bits (0x08) + top-left origin (0x20)
+    0x08,      # descriptor: 8 alpha bits, BOTTOM-left origin (matches FLOLS.tga)
 )
 
+# DCS expects bottom-up rows (descriptor 0x08).  buf was built top-down, so
+# emit the rows in reverse order.
+rows = [bytes(buf[y * W * 4:(y + 1) * W * 4]) for y in range(H)]
+pixels = b''.join(reversed(rows))
+
 out = Path(r"C:\Users\Fett\Saved Games\Claude Dump\CarrierGUI\Hooks\radar_scope.tga")
-out.write_bytes(hdr + bytes(buf))
-print(f"wrote {out}  ({out.stat().st_size} bytes, {W}x{H}, rings {RINGS})")
+out.write_bytes(hdr + pixels)
+print(f"wrote {out}  ({out.stat().st_size} bytes, {W}x{H}, rings {RINGS}, bottom-up)")

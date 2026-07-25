@@ -48,15 +48,38 @@ def ring_dots(prefix, r, gap=4, d=5):
         th = 2*math.pi*i/n
         px = CX + r*math.cos(th)
         py = CY + r*math.sin(th)
-        emit(f'c.{prefix}{i+1} = solidW({round(px-d/2)}, {round(py-d/2)}, {d}, {d}, SCOPE_RING_SKIN, 3)')
+        emit(f'c.{prefix}{i+1} = solidW({round(px-d/2)}, {round(py-d/2)}, {d}, {d}, SCOPE_RING_SKIN, 2)')
     counts[prefix] = n
 
-emit('-- range rings at 10 / 25 / 50 nm — SOLID (overlapping dots, z=3)')
+emit('-- range rings at 10 / 25 / 50 nm — SOLID dot fallback (z=2, under image)')
 ring_dots('mDotA', R10)
 emit('')
 ring_dots('mDotB', R25)
 emit('')
 ring_dots('mDotC', R50)
+emit('')
+
+# Radar scope IMAGE overlay (z=3) — load-time bkg.file (FLOLS-style, bottom-up
+# TGA bundled into the DCS install by Enable-LsoTools).  White cells so the
+# image draws untinted.  The hook HIDES this overlay unless the TGA is present
+# in the DCS install, so unpatched users just see the dot rings (no white box).
+emit('-- radar image overlay (z=3, above dots; hook gates visibility on the TGA)')
+emit('do')
+emit('  local W9 = "0xffffffff"')
+emit(f'  c.mScopeImg = {{')
+emit(f'    ["params"] = {{ ["bounds"] = {{ ["x"]={SX}, ["y"]={SY}, ["w"]={SW}, ["h"]={SH} }},')
+emit('      ["enabled"] = true, ["visible"] = true, ["zindex"] = 3, ["text"] = "", ["tooltip"] = "" },')
+emit('    ["skin"] = { ["params"] = { ["name"] = "staticSkin" }, ["states"] = { ["released"] = { [1] = { ["bkg"] = {')
+emit('      ["center_bottom"]=W9, ["center_center"]=W9, ["center_top"]=W9,')
+emit('      ["left_bottom"]=W9,   ["left_center"]=W9,   ["left_top"]=W9,')
+emit('      ["right_bottom"]=W9,  ["right_center"]=W9,  ["right_top"]=W9,')
+emit('      ["file"]   = "mods\\\\tech\\\\supercarrier\\\\platcameraui\\\\carriergui_radar.tga",')
+emit(f'      ["rect"]   = {{ ["x1"]=0, ["y1"]=0, ["x2"]={SW}, ["y2"]={SH} }},')
+emit('      ["insets"] = { ["top"]=0, ["bottom"]=0, ["left"]=0, ["right"]=0 },')
+emit('    } } } } },')
+emit('    ["type"] = "Static",')
+emit('  }')
+emit('end')
 emit('')
 
 emit('-- own-ship marker (neutral square) + BRC heading vector dots.')

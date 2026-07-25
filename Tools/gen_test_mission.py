@@ -82,12 +82,16 @@ player.units[0].set_player()
 player.units[0].name = "Player"
 
 # ------------------------------------- 2. DECKBOSS: jets parked on deck ---
-deck_flight("Deck Alpha", 2)
-deck_flight("Deck Bravo", 2)
+# CROWD THE DECK ON PURPOSE. Per ED's own FAQ the elevators run "automatically
+# for the AI to move aircraft off the deck to prevent over-crowding" -- so deck
+# pressure is the actual trigger we are trying to provoke, not just traffic.
+for tag in ("Alpha", "Bravo", "Charlie", "Delta", "Echo"):
+    deck_flight("Deck " + tag, 2)
 
 # ---------------------- 3. ELEVATOR "SPAWN" test (elevator 4 = SPAWN) -----
 # Late-activated deck groups. Each activation is a fresh deck spawn, which is
-# what drives the SPAWN elevator in USS_Nimitz_RunwaysAndRoutes.lua.
+# what drives the SPAWN elevator in USS_Nimitz_RunwaysAndRoutes.lua. Fire them
+# early (T+1 / +2.5 / +4) so a short test still exercises them.
 elev_spawns = [deck_flight("Elevator Spawn %d" % i, 2, late=True)
                for i in (1, 2, 3)]
 
@@ -96,10 +100,10 @@ elev_spawns = [deck_flight("Elevator Spawn %d" % i, 2, late=True)
 # spot they despawn -> that is what cycles DESPAWN elevators 1/2/3.
 # Spread in range + altitude so the marshal stack / CCZ tables have content.
 STACK = [
-    ("Recovery 1", 28000.0, 1800),
-    ("Recovery 2", 46000.0, 2400),
-    ("Recovery 3", 64000.0, 3000),
-    ("Recovery 4", 82000.0, 3600),
+    ("Recovery 1", 10000.0, 900),
+    ("Recovery 2", 15000.0, 1200),
+    ("Recovery 3", 21000.0, 1500),
+    ("Recovery 4", 28000.0, 1800),
 ]
 
 
@@ -150,7 +154,7 @@ m.triggerrules.triggers.append(trig)
 # Stagger the elevator spawn activations: T+3, T+6, T+9 minutes.
 for i, fg in enumerate(elev_spawns):
     t = TriggerOnce(Event.NoEvent, "Elevator spawn %d" % (i + 1))
-    t.add_condition(TimeAfter(180 + i * 180))
+    t.add_condition(TimeAfter(60 + i * 90))
     t.add_action(ActivateGroup(fg.id))
     m.triggerrules.triggers.append(t)
 
@@ -158,7 +162,7 @@ m.save(OUT)
 print("wrote", OUT)
 print("  carrier   : CVN-71 @ (%.0f, %.0f) heading 270, 20 kt" % (CV_X, CV_Y))
 print("  player    : 1x F/A-18C hot on deck")
-print("  deck AI   : 4x parked  |  elevator spawns: 3 groups @ T+3/6/9 min")
-print("  recovery  : 8x inbound (land_at carrier) + S-3B tanker")
+print("  deck AI   : 10x parked (deck crowding) | elevator spawns @ T+1/2.5/4 min")
+print("  recovery  : 8x inbound 5-15nm (trap -> taxi -> despawn) + S-3B tanker")
 print("  target    : TGT Convoy + F10 'TGT' mark at T+5s")
 print("  time      : 21:00 night, wind 225/12kt")

@@ -29,9 +29,10 @@ HOOKS = ROOT / "Hooks"
 CORE = {
     HOOKS / "carrier-gui-hook.lua": "Scripts/Hooks/carrier-gui-hook.lua",
     HOOKS / "carrier-gui.dlg":      "Scripts/Hooks/carrier-gui.dlg",
-        HOOKS / "carrier-gui-olympus-client.lua": "Scripts/Hooks/carrier-gui-olympus-client.lua",
+    HOOKS / "carrier-gui-olympus-client.lua": "Scripts/Hooks/carrier-gui-olympus-client.lua",
     HOOKS / "radar_scope.tga":      "Scripts/Hooks/radar_scope.tga",
     HOOKS / "deck_overhead.tga":    "Scripts/Hooks/deck_overhead.tga",
+    HOOKS / "PACKAGE-README.txt":   "CarrierGUI-README.txt",
 }
 # RootMod (DCS install root): the MARSHALL radar + DECKBOSS deck background
 # images, dropped where the .dlg bkg.file references them.

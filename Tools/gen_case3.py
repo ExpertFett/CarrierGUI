@@ -40,7 +40,7 @@ TCX = 143                         # radial centreline x
 TY0, TY1 = 58, 294                # DME 15 (top) .. DME 30 (bottom)
 def tdme(d): return TY0 + (d - 15) * (TY1 - TY0) / 15.0
 L('-- TOWER CASE III: marshal-holding overhead (15..30 nm; boat off-screen up)')
-label('t3Hdr', "MARSHAL HOLDING  .  radial / DME", 6, 24, 300, 'CapSkin', 14)
+label('t3Hdr', "MARSHAL HOLDING  .  radial / DME", 6, 30, 300, 'CapSkin', 14)
 solid('t3Rad', TCX, TY0, 1, TY1 - TY0, 'SCOPE_LN_SKIN', 2)              # FB-recip radial
 label('t3Boat', "^ BOAT  (15 nm)", TCX - 44, TY0 - 2, 110, 'CarrierMark', 12)
 for k, dme in enumerate((15, 20, 25, 30), start=1):

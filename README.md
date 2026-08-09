@@ -1,90 +1,87 @@
 # CarrierGUI
 
-An in-DCS, VR-friendly GUI that replaces the F10 radio menu for AI carrier
-control. Toggle it with **Ctrl+Shift+c** — it renders inside DCS, so it works
-in VR without alt-tabbing.
+An in-DCS, VR-friendly **carrier air-boss panel**: marshal, tower, LSO and deck
+control on one hotkey — **Ctrl+Shift+C** — rendered inside DCS so it works in VR
+without alt-tabbing. Built for squadron CQ nights and LSO/controller duty.
 
 > Personal project, free to share within DCS squadrons. Not affiliated with
 > Eagle Dynamics or any third party.
 
-## Features
+## What you get
 
-**Carrier tab**
-- **Lights** — Off / Auto / Nav / Launch / Recovery
-- **TACAN / ICLS / LINK 4 / ACLS** — on/off, using the channels/freqs set in the
-  mission editor
-- **Turn Into Wind** — Stop / 30m / 60m / 90m / 2h / 4h / 8h (auto-computes
-  heading + speed from live wind)
+| Tab | What it shows |
+|-----|---------------|
+| **MARSHALL** | 60 nm CCZ radar with bearing leaders, flight-clustered marshal table ("203 +1"), angels/EAT assignments, scripted marshal radio readback (CV-1 phrasing), MOTHER data block, live weather, turn-into-wind + CASE broadcast buttons |
+| **TOWER** | CASE I 5 nm overhead + angels 2–6 stack ladder (500 ft rungs), click-to-Charlie stack management, auto-commence, **LEVEL-OFF radar** (the commence→break / spin band nobody can see otherwise), CASE II/III marshal racetrack with radial/DME/EAT |
+| **LSO** | Live pattern plot sized from real squadron tacviews, groove timer, **AUTO-PADDLES** — native LSO grading of every pass (zones X/IM/IC/AR, shorthand like `(H)X (LUL)IM`, wire estimate, OK/FAIR/NG/CUT/Bolter/WO), WAVE OFF / CUT lights, PLAT NVG gain, recovery-sequence list |
+| **DECKBOSS** | Real top-down deck image with live aircraft plots, ON DECK list with zones, **conga-line taxi route** overlay, deck lights + TACAN/ICLS/LINK4/ACLS controls |
 
-**Marshall tab**
-- **Recovery CASE** — broadcast CASE I / II / III to all players
-- **Marshal stack** — broadcast a USN-standard CASE III stack (radial / DME /
-  angels per flight), auto-read from the carrier's live heading
-- **Charlie / push** — broadcast the expected push time
+Off-altitude jets flag **red** in every table (>100 ft off assigned marshal
+altitude). Altitudes are rounded to 50 ft for a clean read.
 
-The bridge auto-discovers any CVN- or LHA-class carrier in the mission — no
-specific group/unit names required.
+## Install (Open Mod Manager)
 
-## How it works (3 pieces)
+1. Download `CarrierGUI_vX.Y.ozp` from [Releases](../../releases).
+2. Add it to OMM with target **Saved Games\DCS** (or your DCS variant's
+   Saved Games folder) and install. The panel is IC-safe — pure
+   `Scripts\Hooks`, no game-file edits.
+3. *(Recommended)* also install `(ROOT)_CarrierGUI_Images_vX.Y.ozp` with target
+   **your DCS install folder** — adds the MARSHALL radar-scope and DECKBOSS
+   deck images (without it you get functional dot-ring fallbacks).
 
-| Piece | Runs in | Job |
-|-------|---------|-----|
-| `Hooks/carrier-gui-hook.lua` + `.dlg` | DCS GUI hook env | Draws the panel, registers the hotkey, fires numbered user flags |
-| `Patcher/carrier-gui-bridge.lua` | in-mission script (embedded per-`.miz`) | Polls flags; drives beacons, wind, and marshall broadcasts |
-| `Patcher/patch_miz.py` | standalone Python | Embeds the bridge + writes the 5 lights triggers into a `.miz` |
+Manual install: open the `.ozp` as a zip, copy its `Scripts` folder into
+`Saved Games\DCS\`.
 
-Lights need trigger-eval-env access to `a_set_carrier_illumination_mode`, so
-they're written as native mission triggers by the patcher. Everything else the
-bridge handles directly.
+## Quick start
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the DCS Lua state map and
-the hard-won gotchas (trigger predicates, hotkey binding, etc.).
+1. In a mission (any slot — pilot, LSO, spectator), press **Ctrl+Shift+C**.
+2. The **login screen** appears. Two ways to feed the panel:
+   - **CONNECT (Olympus)** — your squad's [DCS Olympus](https://github.com/Pax1601/DCSOlympus)
+     server address (port 3000 or 4512) + Game-master password. Full live
+     picture on any server running Olympus — no mission patching needed.
+   - **LOCAL / HOST MODE** — single-player, or when you host the mission:
+     reads the mission directly and adds live wind / weather / QNH.
+3. Pick a tab and run the recovery.
 
-## Install (pilots)
+### Sizing (VR)
 
-1. Download the latest release zip and extract it (keep the folder together).
-2. Double-click **`Install.bat`** — copies the hook into every detected DCS
-   Saved Games folder.
-3. Restart DCS, start a mission, press **Ctrl+Shift+c**.
+- **Ctrl+Shift+I / Ctrl+Shift+K** — bigger / smaller from any tab, instant
+  (75 / 100 / 125 / 150 %).
+- Or **drag the window corner** — rebuilds at that size on release.
+- Or the **UI SIZE** button on the login screen.
 
-## Patch a mission (mission designers)
+## Optional add-ons
 
-For the buttons to do anything in a given mission, the `.miz` must contain the
-bridge. Pilots don't patch — only whoever distributes the squadron's missions.
+| Package | What | Notes |
+|---------|------|-------|
+| `(ROOT)_CarrierGUI_Images` | radar + deck scope images | targets the DCS **install** folder |
+| `CarrierGUI-Controller` | Export.lua data source ("Tacview model") | full picture as a **client** on servers without Olympus; read-only |
+| `CarrierGUI-Olympus` | standalone Python agent | legacy alternative to the built-in Olympus login |
+| LSO tools patch (`LSO/Enable-LsoTools.ps1`, repo only) | PLAT-cam **NVG gain** | edits game files — **fails DCS integrity check**; SP / IC-off servers only; re-run after every DCS update |
+| Mission patcher (`Patcher/`) | embeds the control bridge + deck-lights triggers into a `.miz` | needed for the control buttons on dedicated servers; drag-drop `Patch Mission.bat` |
 
-1. Drag one or more `.miz` files onto **`Patcher/Patch Mission.bat`**.
-2. Hand out the patched `.miz`. (A `.miz.bak` backup is made on first patch.)
+## Notes & limitations
 
-Re-running is safe and idempotent. To undo: drag onto `Patcher/Revert Mission.bat`.
+- Carrier **control** actions (lights, beacons, wind, broadcasts) run in SP /
+  hosted missions, or on servers whose missions carry the bridge (`Patcher/`).
+  In pure Olympus mode against a server you don't administer, the panel is a
+  full **display** and control buttons no-op.
+- Deck lights specifically require the mission patcher (DCS limitation: the
+  lights API only exists in trigger actions).
+- BRC/radials display **magnetic** (exact per-map, per-date declination via
+  DCS's own magvar library).
+- AUTO-PADDLES grades from 1 Hz telemetry — treat it as a very consistent
+  practice LSO, not a NATOPS authority.
 
-The patcher ships with a bundled Python in `Patcher/python/` (in the release
-zip), so end users need nothing installed.
+## For developers
 
-## Flag map
+`docs/ARCHITECTURE.md` has the DCS Lua state map and the hard-won gotchas
+(DialogLoader's global-free dlg environment, trigger predicates, hotkey
+binding, TGA orientation, magvar API). Packages build with
+`python Tools/build_ozp.py <version>` (+ `build_controller_ozp.py`,
+`build_olympus_ozp.py`).
 
-```
- 1-8     beacons (TACAN/ICLS/LINK4/ACLS off/on)   bridge WrappedAction
- 10-14   lights (Off/Auto/Nav/Launch/Recovery)    patcher-written triggers
- 100-106 wind (Stop/30m/60m/90m/2h/4h/8h)         bridge controller:setTask
- 200     marshal-stack broadcast                  bridge outText
- 201     Charlie broadcast                         bridge outText
- 202-204 recovery CASE I / II / III broadcast      bridge outText
-```
+## Credits
 
-Numbering matches the common CSG3 / squadron MOOSE F10 scripts, so both can
-coexist harmlessly.
-
-## Build a release
-
-```
-python Tools/build_release.py 0.4
-```
-
-Downloads the Python embeddable (if missing), stages the installer layout, and
-writes `dist/CarrierGUI-v0.4.zip`. Attach that zip to a GitHub Release.
-
-## Status
-
-Active reconstruction. Current version **v0.4**. Carrier-tab buttons confirmed
-working in the field; marshall tab and the dxgui stepper controls are new and
-being validated in-game.
+Built by **CSG-3 | Fett | 415** with heavy AI assistance. Deck-spotting
+diagram by Nanne118. Pattern geometry derived from squadron tacview data.

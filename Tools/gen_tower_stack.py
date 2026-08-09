@@ -84,7 +84,7 @@ L('--   + side-view angels ladder + STACK / CHARLIE\'D / COMMENCING bordered tab
 L('--   Click a STACK row to Charlie it (panel only); pt-3 crossing auto-commences.')
 L('')
 label('lblTwrOhHdr', "MARSHAL STACK  ·  CASE I overhead  ·  5 nm",
-      PAD, 24, 300, 'CapSkin', 14)
+      PAD, 30, 300, 'CapSkin', 14)
 L('')
 
 # --- overhead circle scope ---------------------------------------------------
@@ -142,7 +142,7 @@ L('')
 
 # --- side-view altitude ladder ----------------------------------------------
 L('-- side-view angels ladder (2 .. 10 k ft)')
-label('lblTwrSvHdr', "ANGELS  ·  2 → 10 k ft", VX, 24, 240, 'CapSkin', 14)
+label('lblTwrSvHdr', "ANGELS  ·  2 → 10 k ft", VX, 30, 240, 'CapSkin', 14)
 solid('tcSvBg', VX, VY, VW, VH, 'SCOPE_BG_SKIN', 1)
 solid('tcSvBT', VX, VY, VW, 1, 'SCOPE_RG_SKIN', 3)
 solid('tcSvBB', VX, VY + VH, VW, 1, 'SCOPE_RG_SKIN', 3)

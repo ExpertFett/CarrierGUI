@@ -1,4 +1,4 @@
--- CarrierGUI Hook  (rebuild v1.3-beta59 — AUTO-PADDLES native LSO grading)
+-- CarrierGUI Hook  (rebuild v1.3-beta60 — DONE-day: drawn conga, audit fixes, hardened live resize)
 --   CARRIER  — F10 menu controls.  Unchanged.
 --   MARSHALL — NEW. 60nm CCZ tracker + marshal radio readout.
 --   TOWER    — was old MARSHALL.  Now has STACK / CHARLIE'D / COMMENCING
@@ -225,7 +225,7 @@ local function load()
     -- beta58: the bottom COMMENCING table (tm*) is RETIRED — replaced by the
     -- LEVEL-OFF radar (lvl*, 700-1600 ft side profile: commence→break + spin).
     -- tm* widgets stay in the dlg but are force-hidden every showTab.
-    local HIDDEN_WIDGETS = { 'tmHdr' }
+    local HIDDEN_WIDGETS = { 'tmHdr', 't3Hdr' }   -- t3Hdr: duplicate of lblTwrOhHdr
     for _, s in base.ipairs({ 'BT','BB','BL','BR','Sep','V1','V2','V3','V4','H1','H2','H3','H4','H5' }) do
         table.insert(HIDDEN_WIDGETS, 'tm' .. s)
     end
@@ -239,7 +239,7 @@ local function load()
         table.insert(TOWER_C1, 'lvlLbl' .. i)
     end
     -- CASE III-only TOWER drawing (marshal-holding OVERHEAD racetrack, t3*).
-    local TOWER_C3 = { 't3Hdr','t3Boat','t3Rad','t3RtIn','t3RtOut',
+    local TOWER_C3 = { 't3Boat','t3Rad','t3RtIn','t3RtOut',
         't3Comm','t3CommL','t3MarshL' }
     for i = 1, 4 do table.insert(TOWER_C3, 't3GR' .. i) end
     for i = 1, 4 do table.insert(TOWER_C3, 't3LR' .. i) end
@@ -388,7 +388,7 @@ local function load()
     -- Skins for the LED bar segments. setSkin(table) on a Static accepts a
     -- table in this shape. LIT = bright NVG green, DIM = near-black so the
     -- unlit cells fade into the panel background.
-    local function makeLedSkin(color)
+    local function makeLedSkin(color, lh)
         return {
             params = { name = 'staticSkin', textWrapping = false },
             states = {
@@ -397,7 +397,7 @@ local function load()
                         text = {
                             color      = color,
                             font       = 'DejaVuLGCSansCondensed-Bold.ttf',
-                            lineHeight = 32,
+                            lineHeight = lh or 32,
                         },
                     },
                 },
@@ -406,6 +406,7 @@ local function load()
     end
     local LED_SKIN_LIT = makeLedSkin('0x60ff80ff')
     local LED_SKIN_DIM = makeLedSkin('0x202020ff')
+    -- (rebuilt scale-aware by rebuildRowSkins each window spawn)
 
     -- --------------------------------------------------------- show / hide ---
     -- Gotcha #4: setVisible(false) destroys the dialog. We toggle visibility
@@ -439,6 +440,12 @@ local function load()
     end
 
     local function toggle()
+        -- DEBOUNCE: hotkeys are bound per-window, and live-rescale orphans old
+        -- windows whose callbacks may still fire — without this, one keypress
+        -- after a rescale toggles twice (panel flashes and stays hidden).
+        local nowD = DCS.getRealTime() or 0
+        if nowD - (carrier._lastToggle or -9) < 0.35 then return end
+        carrier._lastToggle = nowD
         if carrier.visible then hide() else show() end
         logInfo('toggle -> ' .. tostring(carrier.visible))
     end
@@ -542,6 +549,9 @@ local function load()
         ROWSKIN_STD = mkRowSkin('0xe0e0e0ff')
         ROWSKIN_RED = mkRowSkin('0xff4040ff')
         carrier._altRed = {}
+        local lh = math.floor(32 * (UI_SCALE or 1) + 0.5)
+        LED_SKIN_LIT = makeLedSkin('0x60ff80ff', lh)
+        LED_SKIN_DIM = makeLedSkin('0x202020ff', lh)
     end
     -- altFt: true altitude; assignedAng: angels (thousands) or nil = no check
     local function setAltCell(name, altFt, assignedAng)
@@ -562,47 +572,64 @@ local function load()
     -- bottom, stern = right).  Flow: clear the landing area (right) → forward up
     -- THE STREET on the starboard side → around the bow to CATS 1 & 2 → down
     -- through the crotch → back to the WAIST CATS 3 & 4.  Tunable schematic.
+    -- TRACED FROM THE USER'S DRAWING (grid map, 2026-07-15): a closed LOOP —
+    -- bow-cat JBDs → aft down THE STREET/SIXPACK lane past the island → around
+    -- at the stern/fantail → forward along the landing-area edge → back up to
+    -- the bow JBDs — plus a SPUR from the landing-edge down to the waist cats.
+    -- {-1,-1} = pen-up break between the loop and the spur.
     local CONGA_ANCHORS = {
-        { 462, 140 },   -- in the wires (arresting gear)
-        { 430, 118 },   -- exit the landing area smartly across the foul line
-        { 388, 106 },   -- onto the starboard taxi lane
-        { 320, 104 },   -- THE STREET, inboard of the island row
-        { 250, 100 },
-        { 182,  96 },   -- toward POINT (bow parking)
-        { 100, 100 },
-        {  55, 116 },   -- BOW CATS 1 & 2
-        {  72, 138 },   -- swing down through the crotch
-        { 114, 148 },
-        { 185, 158 },
-        { 253, 165 },   -- WAIST CATS 3 & 4
+        { 186, 104 },   -- cat 1/2 JBD area
+        { 238,  98 },   -- aft down THE STREET
+        { 293,  97 },
+        { 337, 100 },   -- inboard of the island
+        { 381, 102 },
+        { 425, 104 },
+        { 465, 103 },   -- patio corner
+        { 483, 112 },   -- around the stern
+        { 480, 126 },
+        { 440, 131 },   -- forward along the landing-area edge
+        { 398, 129 },
+        { 363, 133 },
+        { 320, 131 },
+        { 280, 131 },
+        { 240, 129 },
+        { 207, 130 },
+        { 190, 118 },   -- up to close the loop at the bow JBDs
+        { 186, 104 },
+        {  -1,  -1 },   -- pen up
+        { 363, 133 },   -- spur: branch off the landing edge
+        { 385, 157 },   -- down to WAIST CATS 3 & 4
     }
-    local CONGA_POOL = 40
+    local CONGA_POOL = 56
     local function applyConga()
         local show = (carrier.tab == 'deckboss') and carrier.congaOn
         if not show then
             for i = 1, CONGA_POOL do setBounds('congaDot' .. i, -300, -300, 8, 8) end
             return
         end
-        -- walk the anchor polyline, dropping a dot every ~18 px of arc length so
-        -- the dots overlap into a near-continuous line.
+        -- walk the anchor polyline, a dot every ~16 px; {-1,-1} anchors are
+        -- pen-up breaks (loop vs spur are separate strokes).
         local dots, seg = {}, 0
         for a = 1, #CONGA_ANCHORS - 1 do
             local x1, y1 = CONGA_ANCHORS[a][1],   CONGA_ANCHORS[a][2]
             local x2, y2 = CONGA_ANCHORS[a+1][1], CONGA_ANCHORS[a+1][2]
-            local dx, dy = x2 - x1, y2 - y1
-            local len = math.sqrt(dx*dx + dy*dy)
-            local steps = math.max(1, math.floor(len / 16 + 0.5))
-            for s = 0, steps - 1 do
-                seg = seg + 1
-                if seg <= CONGA_POOL then
-                    dots[seg] = { math.floor(x1 + dx * s / steps),
-                                  math.floor(y1 + dy * s / steps) }
+            if x1 >= 0 and x2 >= 0 then
+                local dx, dy = x2 - x1, y2 - y1
+                local len = math.sqrt(dx*dx + dy*dy)
+                local steps = math.max(1, math.floor(len / 16 + 0.5))
+                for s = 0, steps - 1 do
+                    seg = seg + 1
+                    if seg <= CONGA_POOL then
+                        dots[seg] = { math.floor(x1 + dx * s / steps),
+                                      math.floor(y1 + dy * s / steps) }
+                    end
                 end
             end
         end
-        if seg < CONGA_POOL then   -- final anchor
+        local last = CONGA_ANCHORS[#CONGA_ANCHORS]
+        if seg < CONGA_POOL and last[1] >= 0 then
             seg = seg + 1
-            dots[seg] = { CONGA_ANCHORS[#CONGA_ANCHORS][1], CONGA_ANCHORS[#CONGA_ANCHORS][2] }
+            dots[seg] = { last[1], last[2] }
         end
         for i = 1, CONGA_POOL do
             local p = dots[i]
@@ -2019,7 +2046,10 @@ return 'ERR|' .. tostring(resE)
                 setBounds('lvlDot' .. i, x - 2, y - 2, 5, 5)
                 setText('lvlLbl' .. i, string.format('%s %d',
                     r.modex:sub(1, 6), math.floor(r.alt / 50 + 0.5) * 50))
-                setBounds('lvlLbl' .. i, x + 6, y - 6, 64, 13)
+                -- keep the label inside the strip: flip it to the left of the
+                -- dot near the right edge (would otherwise clip past x=540)
+                local lx = (x > 450) and (x - 70) or (x + 6)
+                setBounds('lvlLbl' .. i, lx, y - 6, 64, 13)
             else
                 setBounds('lvlDot' .. i, -300, -300, 5, 5)
                 setText('lvlLbl' .. i, '')
@@ -2358,8 +2388,7 @@ return 'ERR|' .. tostring(resE)
                     carrier.shipHeadKts or 0, carrier.shipCrossKts or 0))
             elseif carrier.olympusActive and carrier.shipSpd then
                 setText('lblBoat2', string.format(
-                    'SHIP %d kt   (Olympus feed has no ambient wind — use LOCAL mode)',
-                    carrier.shipSpd))
+                    'SHIP %d kt   (wind n/a on Olympus feed)', carrier.shipSpd))
             else
                 setText('lblBoat2', 'WIND ---/-- kt   ACROSS DECK --')
             end
@@ -3050,6 +3079,35 @@ return 'ERR|' .. tostring(resE)
     local respawnWindow   -- forward-declared: button callbacks inside
                           -- createWindow close over it (assigned below)
 
+    -- UI-scale stepping, shared by the login button (cycle) and the
+    -- Ctrl+Shift+I / Ctrl+Shift+K hotkeys (up / down, any tab).  Debounced —
+    -- hotkeys are window-bound and rescale orphans old windows.
+    local SCALE_STEPS = { 75, 100, 125, 150 }
+    local function applyScaleStep(dir, wrap)
+        local nowD = DCS.getRealTime() or 0
+        if nowD - (carrier._lastScaleKey or -9) < 0.6 then return end
+        carrier._lastScaleKey = nowD
+        local cur = math.floor((carrier._pendingScale or carrier.uiScale or 1) * 100 + 0.5)
+        local idx = 2
+        for i, v in base.ipairs(SCALE_STEPS) do if v == cur then idx = i end end
+        idx = idx + dir
+        if wrap then
+            if idx > #SCALE_STEPS then idx = 1 elseif idx < 1 then idx = #SCALE_STEPS end
+        else
+            if idx > #SCALE_STEPS then idx = #SCALE_STEPS elseif idx < 1 then idx = 1 end
+        end
+        local nxt = SCALE_STEPS[idx]
+        if nxt == cur then return end
+        carrier._pendingScale = nxt / 100
+        base.pcall(function()
+            local f = io.open(lfs.writedir() .. 'carriergui_scale.txt', 'w')
+            if f then f:write(tostring(nxt)); f:close() end
+        end)
+        local patched = carrier.writeDlgScale and carrier.writeDlgScale(nxt / 100)
+        logInfo('ui scale -> ' .. tostring(nxt) .. ' (dlg patched=' .. tostring(patched) .. ')')
+        if patched and respawnWindow then respawnWindow() end
+    end
+
     local function createWindow()
         -- re-read the dlg's baked scale each spawn — a LIVE RESCALE patches the
         -- line then re-spawns, so this is where the new size takes effect
@@ -3084,6 +3142,11 @@ return 'ERR|' .. tostring(resE)
         else
             logInfo('hotkey Ctrl+Shift+c registered')
         end
+        -- UI-scale hotkeys — work from ANY tab (I = bigger, K = smaller)
+        base.pcall(function()
+            carrier.window:addHotKeyCallback('Ctrl+Shift+i', function() applyScaleStep(1) end)
+            carrier.window:addHotKeyCallback('Ctrl+Shift+k', function() applyScaleStep(-1) end)
+        end)
 
         -- wire every simple fire-flag button
         for name, flag in base.pairs(BUTTON_FLAGS) do
@@ -3147,33 +3210,14 @@ return 'ERR|' .. tostring(resE)
             showTab('marshall')
             logInfo('local/host mode selected')
         end)
-        -- UI SIZE cycle (75 → 100 → 125 → 150%); applies at next DCS start /
-        -- mission reload (the dlg rebuilds every widget at the saved scale).
-        local SCALE_STEPS = { 75, 100, 125, 150 }
+        -- UI SIZE: applies INSTANTLY via live respawn.  Button cycles the
+        -- steps; Ctrl+Shift+I / Ctrl+Shift+K step up/down from ANY tab; the
+        -- window corner-drag also rescales on release.
         base.pcall(function()
             setText('btnUiScale', string.format('UI SIZE: %d%%',
                 math.floor((carrier.uiScale or 1) * 100 + 0.5)))
         end)
-        wireClick('btnUiScale', function()
-            local cur = math.floor((carrier._pendingScale or carrier.uiScale or 1) * 100 + 0.5)
-            local idx = 2
-            for i, v in base.ipairs(SCALE_STEPS) do if v == cur then idx = i break end end
-            local nxt = SCALE_STEPS[(idx % #SCALE_STEPS) + 1]
-            carrier._pendingScale = nxt / 100
-            -- persist intent + patch the dlg's baked SCALE line for next spawn
-            base.pcall(function()
-                local f = io.open(lfs.writedir() .. 'carriergui_scale.txt', 'w')
-                if f then f:write(tostring(nxt)); f:close() end
-            end)
-            local patched = carrier.writeDlgScale and carrier.writeDlgScale(nxt / 100)
-            logInfo('ui scale -> ' .. tostring(nxt) .. ' (dlg patched=' .. tostring(patched) .. ')')
-            if patched and respawnWindow then
-                respawnWindow()          -- applies IMMEDIATELY (no DCS restart)
-            else
-                setText('btnUiScale', string.format('UI SIZE: %d%%', nxt))
-                setLoginStatus(string.format('UI size %d%% saved (dlg patch failed - see log)', nxt))
-            end
-        end)
+        wireClick('btnUiScale', function() applyScaleStep(1, true) end)
 
         wireClick('btnLogout', function()
             if CGOLY then CGOLY.stop() end
@@ -3407,18 +3451,40 @@ return 'ERR|' .. tostring(resE)
         logInfo('deck image TGA '  .. (carrier.deckImgOk  and 'found — overlay enabled' or 'not found — using hint'))
 
         -- beta50: LOGIN is the front door; prefill host/port from the last
-        -- successful connect (password is never persisted).
+        -- successful connect (password is never persisted to disk).  A live
+        -- rescale keeps whatever was TYPED (incl. password) via _loginKeep.
         base.pcall(function()
-            local h, p = loadLogin()
+            local keep = carrier._loginKeep
+            carrier._loginKeep = nil
+            local h, po = loadLogin()
+            local pw = ''
+            if keep then
+                if keep.host ~= '' then h = keep.host end
+                if keep.port ~= '' then po = keep.port end
+                pw = keep.pass or ''
+            end
             if h ~= '' and carrier.window.edHost and carrier.window.edHost.setText then
                 carrier.window.edHost:setText(h)
             end
-            if p ~= '' and carrier.window.edPort and carrier.window.edPort.setText then
-                carrier.window.edPort:setText(p)
+            if po ~= '' and carrier.window.edPort and carrier.window.edPort.setText then
+                carrier.window.edPort:setText(po)
+            end
+            if pw ~= '' and carrier.window.edPass and carrier.window.edPass.setText then
+                carrier.window.edPass:setText(pw)
             end
         end)
         -- restore the working tab on a live-rescale respawn; fresh start = login
         showTab(carrier.tab or 'login')
+        -- re-drive state the dlg defaults would otherwise contradict:
+        base.pcall(function()
+            setText('lblDbCongaState', 'CONGA LINE:  ' .. (carrier.congaOn and 'ON' or 'OFF'))
+        end)
+        do  -- WAVE OFF / CUT still inside their 5 s latch: re-light on the new window
+            local nowL = DCS.getRealTime() or 0
+            for name, tUntil in base.pairs(lightActiveUntil) do
+                if tUntil > nowL then base.pcall(setLightLit, name, true) end
+            end
+        end
 
         carrier.windowCreated = true
         if carrier._respawnShow then
@@ -3438,6 +3504,21 @@ return 'ERR|' .. tostring(resE)
     -- is orphaned (dxgui has no reliable destroy) — shrunk to 0x0, harmless.
     respawnWindow = function()
         carrier._respawnShow = carrier.visible
+        -- keep whatever the user typed on the login form across the respawn
+        base.pcall(function()
+            carrier._loginKeep = {
+                host = carrier.window.edHost and carrier.window.edHost:getText() or '',
+                port = carrier.window.edPort and carrier.window.edPort:getText() or '',
+                pass = carrier.window.edPass and carrier.window.edPass:getText() or '',
+            }
+        end)
+        -- keep the panel where the user dragged it (API-guarded)
+        base.pcall(function()
+            local x, y = carrier.window:getPosition()
+            if type(x) == 'number' and type(y) == 'number' then
+                carrier.showX, carrier.showY = x, y
+            end
+        end)
         base.pcall(function()
             carrier.window:setVisible(false)
             carrier.window:setSize(0, 0)
@@ -3446,6 +3527,14 @@ return 'ERR|' .. tostring(resE)
         carrier.windowCreated = false
         carrier.createAttempts = 0
         carrier._baseW, carrier._dragW = nil, nil   -- fresh drag baseline
+        carrier._pendingScale = nil                 -- dlg line is authoritative now
+        carrier.nvgReapplied, carrier.nvgReapplyAt = nil, nil  -- re-arm LED stomp guard
+        -- force the live-plot labels/parking to re-drive on the new window
+        if carrier.acftLerp then
+            for _, e in base.pairs(carrier.acftLerp) do e.lb, e.parked = nil, false end
+        end
+        -- re-probe the bridge so lblStatus/lblNvgState repaint (local mode)
+        carrier.bridgeProbeAt = (DCS.getRealTime() or 0) + 1
         logInfo('live rescale: respawning window')
     end
 
@@ -3626,7 +3715,7 @@ return 'ERR|' .. tostring(resE)
     end
 
     DCS.setUserCallbacks(handler)
-    logInfo('hook loaded (v1.3-beta59)')
+    logInfo('hook loaded (v1.3-beta60)')
 end
 
 local ok, err = pcall(load)

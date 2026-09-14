@@ -57,7 +57,7 @@ Manual install: open the `.ozp` as a zip, copy its `Scripts` folder into
 | `(ROOT)_CarrierGUI_Images` | radar + deck scope images | targets the DCS **install** folder |
 | `CarrierGUI-Controller` | Export.lua data source ("Tacview model") | full picture as a **client** on servers without Olympus; read-only |
 | `CarrierGUI-Olympus` | standalone Python agent | legacy alternative to the built-in Olympus login |
-| LSO tools patch (`LSO/Enable-LsoTools.ps1`, repo only) | PLAT-cam **NVG gain** | edits game files — **fails DCS integrity check**; SP / IC-off servers only; re-run after every DCS update |
+| `CarrierGUI-LSO-Tools` (zip on Releases, or `LSO/` in repo) | PLAT-cam **NVG gain** + foul deck / wire / PLAT zoom | run `Enable-LsoTools.ps1`; edits game files — **fails DCS integrity check**; SP / IC-off servers only; re-run after every DCS update; `Disable-LsoTools.ps1` reverts |
 | Mission patcher (`Patcher/`) | embeds the control bridge + deck-lights triggers into a `.miz` | needed for the control buttons on dedicated servers; drag-drop `Patch Mission.bat` |
 
 ## Notes & limitations

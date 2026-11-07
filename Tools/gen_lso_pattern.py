@@ -15,7 +15,7 @@ import math
 import re
 from pathlib import Path
 
-DLG = Path(r"C:\Users\Fett\Saved Games\Claude Dump\CarrierGUI\Hooks\carrier-gui.dlg")
+DLG = Path(r"C:\Users\Fett\OneDrive\everything\Desktop\New folder\Claude Dump\CarrierGUI\Hooks\carrier-gui.dlg")
 
 # ---- racetrack geometry from REAL tacview data (LSO scope x16..524, y48..278)
 # v1.3-beta54: sized from the squadron's own CASE I practice (CarrierGUI\

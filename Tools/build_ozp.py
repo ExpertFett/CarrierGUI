@@ -22,7 +22,7 @@ import sys
 import zipfile
 from pathlib import Path
 
-ROOT = Path(r"C:\Users\Fett\Saved Games\Claude Dump\CarrierGUI")
+ROOT = Path(r"C:\Users\Fett\OneDrive\everything\Desktop\New folder\Claude Dump\CarrierGUI")
 HOOKS = ROOT / "Hooks"
 
 # CoreMod (Saved Games\DCS): the panel itself.

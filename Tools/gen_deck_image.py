@@ -15,7 +15,7 @@ from pathlib import Path
 from PIL import Image
 import numpy as np
 
-ROOT = Path(r"C:\Users\Fett\Saved Games\Claude Dump\CarrierGUI")
+ROOT = Path(r"C:\Users\Fett\OneDrive\everything\Desktop\New folder\Claude Dump\CarrierGUI")
 SRC  = ROOT / "deck_source.png"
 TGA  = ROOT / "Hooks" / "deck_overhead.tga"
 PREV = ROOT / "deck_overhead_preview.png"

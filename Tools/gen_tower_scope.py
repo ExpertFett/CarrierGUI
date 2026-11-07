@@ -31,7 +31,7 @@ counts['tDotB'] = ring('tDotB', R4)
 dot_lines.append('')
 counts['tDotC'] = ring('tDotC', R6)
 
-dlg = Path(r"C:\Users\Fett\Saved Games\Claude Dump\CarrierGUI\Hooks\carrier-gui.dlg")
+dlg = Path(r"C:\Users\Fett\OneDrive\everything\Desktop\New folder\Claude Dump\CarrierGUI\Hooks\carrier-gui.dlg")
 src = dlg.read_text(encoding='utf-8')
 
 # 1) replace the seg ring block (from the first c.tRingA1 line through the

@@ -192,7 +192,7 @@ emit(f'c.btnCaseM3 = btn("CASE III", {6+(114+6)*2}, 858, 114)')
 emit('')
 
 section = '\n'.join(L) + '\n'
-dlg = Path(r"C:\Users\Fett\Saved Games\Claude Dump\CarrierGUI\Hooks\carrier-gui.dlg")
+dlg = Path(r"C:\Users\Fett\OneDrive\everything\Desktop\New folder\Claude Dump\CarrierGUI\Hooks\carrier-gui.dlg")
 text = dlg.read_text(encoding='utf-8')
 lines = text.split('\n')
 start = next(i for i, ln in enumerate(lines) if 'MARSHALL TAB ==' in ln)

@@ -69,6 +69,6 @@ hdr = struct.pack(
 rows = [bytes(buf[y * W * 4:(y + 1) * W * 4]) for y in range(H)]
 pixels = b''.join(reversed(rows))
 
-out = Path(r"C:\Users\Fett\Saved Games\Claude Dump\CarrierGUI\Hooks\radar_scope.tga")
+out = Path(r"C:\Users\Fett\OneDrive\everything\Desktop\New folder\Claude Dump\CarrierGUI\Hooks\radar_scope.tga")
 out.write_bytes(hdr + pixels)
 print(f"wrote {out}  ({out.stat().st_size} bytes, {W}x{H}, rings {RINGS}, bottom-up)")

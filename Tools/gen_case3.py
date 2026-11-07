@@ -19,7 +19,7 @@ import math
 import re
 from pathlib import Path
 
-DLG = Path(r"C:\Users\Fett\Saved Games\Claude Dump\CarrierGUI\Hooks\carrier-gui.dlg")
+DLG = Path(r"C:\Users\Fett\OneDrive\everything\Desktop\New folder\Claude Dump\CarrierGUI\Hooks\carrier-gui.dlg")
 
 lines = []
 def L(s=''): lines.append(s)

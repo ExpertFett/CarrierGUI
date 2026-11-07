@@ -3,7 +3,7 @@
 from pathlib import Path
 import re
 
-p = Path(r"C:\Users\Fett\Saved Games\Claude Dump\CarrierGUI\Hooks\carrier-gui.dlg")
+p = Path(r"C:\Users\Fett\OneDrive\everything\Desktop\New folder\Claude Dump\CarrierGUI\Hooks\carrier-gui.dlg")
 src = p.read_text(encoding='utf-8')
 geom = Path(__file__).with_name('radar_geom.txt').read_text(encoding='utf-8')
 
